@@ -1,0 +1,81 @@
+# see https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md
+
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Example project
+Resources:
+
+  RestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../dist/rest/rest.zip
+      Handler: index.handler
+      Runtime: nodejs10.x
+      MemorySize: 128
+      Timeout: 30 # seconds, 300 max
+      Environment:
+        Variables:
+          LIGHTRAIL_DOMAIN: !Ref LightrailDomain
+          LIGHTRAIL_EMAIL_DOMAIN: !Ref LightrailEmailDomain
+          LIGHTRAIL_WEBAPP_DOMAIN: !Ref LightrailWebappDomain
+          OBJECT_TABLE: !Ref ObjectTable
+          SECURE_CONFIG_BUCKET: !Ref SecureConfigBucket
+          SECURE_CONFIG_KEY_JWT: authentication_badge_key.json
+          SECURE_CONFIG_KEY_OTP: otp.json
+          SECURE_CONFIG_KEY_ROLE_DEFINITIONS: RoleDefinitions.json
+          SECURE_CONFIG_KEY_SENTRY: sentry_lambda_services.json
+          SECURE_CONFIG_KEY_STRIPE: stripe_connect.json
+          SECURE_CONFIG_KEY_TWILIO: twilio.json
+          TOKEN_ACTION_TABLE: !Ref TokenActionTable
+      Policies:
+      - Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action:
+          - s3:GetObject
+          Resource:
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/authentication_badge_key.json"
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/otp.json"
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/RoleDefinitions.json"
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/sentry_lambda_services.json"
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/stripe_connect.json"
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/twilio.json"
+        - Effect: Allow
+          Action:
+          - kms:Decrypt
+          - kms:DescribeKey
+          Resource:
+          - !Ref SecureConfigKmsArn
+          Condition:
+            StringLike:
+              "kms:ViaService":
+                !Sub "s3.${AWS::Region}.amazonaws.com"
+              "kms:EncryptionContext:aws:s3:arn":
+                !Sub "arn:aws:s3:::${SecureConfigBucket}/*"
+        - Effect: Allow
+          Action:
+          - ses:SendEmail
+          - ses:SendRawEmail
+          Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${LightrailEmailDomain}"
+
+  GutenbergTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
+      KeySchema:
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: !If [UseProductionCapacity, 70, 8]
+        WriteCapacityUnits: !If [UseProductionCapacity, 35, 8]
+      Tags:
+      - Key: ShortName
+        Value: GutenbergTable
+      - Key: Service
+        Value: Gutenberg
