@@ -1,11 +1,12 @@
 import {dynamodb, objectDynameh, queryAll} from "./dynamodb";
 import * as giftbitRoutes from "giftbit-cassava-routes";
 import * as cassava from "cassava";
+import {generateRandomString} from "../lambdas/rest/webhooks/secretsGenerator";
 
 export interface Webhook {
     id: string;
     url: string;
-    secret?: string;
+    secrets?: string[];
     events: string[];
     active: boolean;
     description?: string;
@@ -20,6 +21,10 @@ interface DbWebhook extends Webhook {
     sk: string;
 }
 
+const SECRET_LENGTH = 15;
+
+const WEBHOOK_SORT_KEY = "Webhooks/";
+
 /**
  * Internal API - Operations that can be called from other lambdas within this project.
  */
@@ -27,12 +32,13 @@ export namespace Webhook {
     export async function get(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhookEndpointId: string): Promise<Webhook> {
         const req = objectDynameh.requestBuilder.buildGetInput(DbWebhook.getPK(auth), DbWebhook.getSK(webhookEndpointId));
         const resp = await dynamodb.getItem(req).promise();
+        // console.log(JSON.stringify(resp, null, 4));
         const dbWebhookEndpoint = objectDynameh.responseUnwrapper.unwrapGetOutput(resp) as DbWebhook;
         return DbWebhook.fromDbObject(dbWebhookEndpoint);
     }
 
     export async function list(auth: giftbitRoutes.jwtauth.AuthorizationBadge): Promise<Webhook[]> {
-        const req = objectDynameh.requestBuilder.buildQueryInput(DbWebhook.getPK(auth), "begins_with", "#WebhookEndpoint/");
+        const req = objectDynameh.requestBuilder.buildQueryInput(DbWebhook.getPK(auth), "begins_with", WEBHOOK_SORT_KEY);
         const dbObjects = await queryAll(req);
         return dbObjects.map(DbWebhook.fromDbObject);
     }
@@ -40,6 +46,7 @@ export namespace Webhook {
     export async function create(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhook: Webhook): Promise<any> {
         webhook.createdDate = new Date().toISOString();
         webhook.updatedDate = webhook.createdDate;
+        webhook.secrets = [generateRandomString(SECRET_LENGTH)];
         webhook.createdBy = auth.teamMemberId;
 
         const dbWebhookEndpoint: Webhook = DbWebhook.toDbObject(auth, webhook);
@@ -98,11 +105,11 @@ namespace DbWebhook {
     }
 
     export function getPK(auth: giftbitRoutes.jwtauth.AuthorizationBadge): string {
-        return "#Account/" + auth.userId;
+        return "Accounts/" + auth.userId;
     }
 
     export function getSK(webhookEndpointId: string): string {
-        return "#WebhookEndpoint/" + webhookEndpointId;
+        return WEBHOOK_SORT_KEY + webhookEndpointId;
     }
 }
 

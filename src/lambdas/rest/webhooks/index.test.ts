@@ -28,6 +28,8 @@ describe("webhooks", () => {
         const create = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", webhook);
         chai.assert.equal(create.statusCode, 201);
         chai.assert.deepInclude(create.body, webhook);
+        chai.assert.isNotEmpty(create.body.secrets);
+        console.log(create.body.secrets);
 
         const get = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}`, "GET");
         chai.assert.equal(get.statusCode, 200);
@@ -38,7 +40,7 @@ describe("webhooks", () => {
         chai.assert.deepInclude(list.body[0], webhook);
     });
 
-    it("can't create a webhook if it already exists", async () => {
+    it("can't create a webhook if it already exists - 409", async () => {
         const webhook: Partial<Webhook> = {
             id: generateId(),
             url: "https://www.example.com/hooks",
@@ -51,6 +53,11 @@ describe("webhooks", () => {
 
         const createAgain = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", webhook);
         chai.assert.equal(createAgain.statusCode, 409);
+    });
+
+    it("can't get a webhook that doesn't exist - 404", async () => {
+        const get = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${generateId()}`, "GET");
+        chai.assert.equal(get.statusCode, 404);
     });
 
     it("can update a webhook", async () => {
