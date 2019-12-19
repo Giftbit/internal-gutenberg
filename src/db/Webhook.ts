@@ -1,6 +1,6 @@
-import {dynamodb, objectDynameh} from "./dynamodb";
+import {dynamodb, objectDynameh, queryAll} from "./dynamodb";
 import * as giftbitRoutes from "giftbit-cassava-routes";
-import {DbWebhook} from "./Webhook";
+import * as cassava from "cassava";
 
 export interface Webhook {
     id: string;
@@ -8,19 +8,70 @@ export interface Webhook {
     secret?: string;
     events: string[];
     active: boolean;
+    description?: string;
     createdDate: string;
     updatedDate: string;
     createdBy: string;
 }
 
-export interface DbWebhook extends Webhook {
+interface DbWebhook extends Webhook {
     userId: string;
     pk: string;
     sk: string;
 }
 
+/**
+ * Internal API - Operations that can be called from other lambdas within this project.
+ */
 export namespace Webhook {
+    export async function get(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhookEndpointId: string): Promise<Webhook> {
+        const req = objectDynameh.requestBuilder.buildGetInput(DbWebhook.getPK(auth), DbWebhook.getSK(webhookEndpointId));
+        const resp = await dynamodb.getItem(req).promise();
+        const dbWebhookEndpoint = objectDynameh.responseUnwrapper.unwrapGetOutput(resp) as DbWebhook;
+        return DbWebhook.fromDbObject(dbWebhookEndpoint);
+    }
 
+    export async function list(auth: giftbitRoutes.jwtauth.AuthorizationBadge): Promise<Webhook[]> {
+        const req = objectDynameh.requestBuilder.buildQueryInput(DbWebhook.getPK(auth), "begins_with", "#WebhookEndpoint/");
+        const dbObjects = await queryAll(req);
+        return dbObjects.map(DbWebhook.fromDbObject);
+    }
+
+    export async function create(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhook: Webhook): Promise<any> {
+        webhook.createdDate = new Date().toISOString();
+        webhook.updatedDate = webhook.createdDate;
+        webhook.createdBy = auth.teamMemberId;
+
+        const dbWebhookEndpoint: Webhook = DbWebhook.toDbObject(auth, webhook);
+        const req = objectDynameh.requestBuilder.buildPutInput(dbWebhookEndpoint);
+        objectDynameh.requestBuilder.addCondition(req, {
+            attribute: "pk",
+            operator: "attribute_not_exists"
+        });
+        try {
+            const resp = await dynamodb.putItem(req).promise();
+            return objectDynameh.responseUnwrapper.unwrapGetOutput(resp);
+        } catch (e) {
+            if (e.code === "ConditionalCheckFailedException") {
+                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Webhook with id: ${webhook.id} already exists.`)
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    export async function update(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhook: Webhook): Promise<any> {
+        webhook.updatedDate = new Date().toISOString();
+
+        const dbWebhookEndpoint: Webhook = DbWebhook.toDbObject(auth, webhook);
+        const req = objectDynameh.requestBuilder.buildPutInput(dbWebhookEndpoint);
+        const resp = await dynamodb.putItem(req).promise();
+
+        return objectDynameh.responseUnwrapper.unwrapGetOutput(resp);
+    }
+}
+
+namespace DbWebhook {
     export function fromDbObject(o: DbWebhook): Webhook {
         if (!o) {
             return null;
@@ -29,7 +80,7 @@ export namespace Webhook {
         delete webhookEndpoint.userId;
         delete webhookEndpoint.pk;
         delete webhookEndpoint.sk;
-        return webhookEndpoint as any;
+        return webhookEndpoint as Webhook;
     }
 
     export function toDbObject(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhookEndpoint: Webhook): DbWebhook {
@@ -41,39 +92,16 @@ export namespace Webhook {
             ...{
                 userId: auth.userId,
                 pk: getPK(auth),
-                sk: getSK(webhookEndpoint.id),
-                createdBy: auth.teamMemberId
+                sk: getSK(webhookEndpoint.id)
             }
         };
     }
 
-    export async function get(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhookEndpointId: string): Promise<Webhook> {
-        const req = objectDynameh.requestBuilder.buildGetInput(getPK(auth), getSK(webhookEndpointId));
-        const resp = await dynamodb.getItem(req).promise();
-        const dbWebhookEndpoint = objectDynameh.responseUnwrapper.unwrapGetOutput(resp) as DbWebhook;
-        return Webhook.fromDbObject(dbWebhookEndpoint);
-    }
-
-    export async function create(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhook: Webhook): Promise<any> {
-        webhook.createdDate = new Date().toISOString();
-        return await update(auth, webhook);
-    }
-
-    export async function update(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhook: Webhook): Promise<any> {
-        webhook.updatedDate = new Date().toISOString();
-
-        const dbWebhookEndpoint: Webhook = toDbObject(auth, webhook);
-        const req = objectDynameh.requestBuilder.buildPutInput(dbWebhookEndpoint);
-        const resp = await dynamodb.putItem(req).promise();
-
-        return objectDynameh.responseUnwrapper.unwrapGetOutput(resp);
-    }
-
-    function getPK(auth: giftbitRoutes.jwtauth.AuthorizationBadge): string {
+    export function getPK(auth: giftbitRoutes.jwtauth.AuthorizationBadge): string {
         return "#Account/" + auth.userId;
     }
 
-    function getSK(webhookEndpointId: string): string {
+    export function getSK(webhookEndpointId: string): string {
         return "#WebhookEndpoint/" + webhookEndpointId;
     }
 }

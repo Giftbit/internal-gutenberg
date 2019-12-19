@@ -34,12 +34,6 @@ export function generateId(length?: number): string {
 
 export const defaultTestUser = new TestUser({
     userId: "default-test-user-TEST",
-
-    /**
-     * See .env.example for Stripe config details
-     * This is "merchant" (connected account) config from stripe test account//pass: integrationtesting+merchant@giftbit.com // x39Rlf4TH3pzn29hsb#
-     */
-    stripeAccountId: "acct_1BOVE6CM9MOvFvZK"
 });
 
 export const testAuthedRequest: <T>(router: cassava.Router, url: string, method: string, body?: any) => Promise<ParsedProxyResponse<T>> = defaultTestUser.request.bind(defaultTestUser);
