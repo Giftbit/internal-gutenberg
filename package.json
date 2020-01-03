@@ -7,7 +7,7 @@
     "clean": "rimraf ./dist",
     "lint": "tslint --project tsconfig.json",
     "test": "npm run test:startdb; TEST_ENV=true AWS_REGION=us-west-2 AWS_ACCESS_KEY_ID=AKID AWS_SECRET_ACCESS_KEY=SECRET WEBHOOK_ENDPOINTS_TABLE=GutenbergTable mocha --recursive --throw-deprecation --require ts-node/register --require ./src/utils/testUtils/setLogLevelSilent.ts --exit \"src/**/*.test.ts\"; npm run test:stopdb",
-    "test:debug": "npm run test:startdb; TEST_ENV=true AWS_REGION=us-west-2 AWS_ACCESS_KEY_ID=AKID AWS_SECRET_ACCESS_KEY=SECRET OBJECT_TABLE=GutenbergTable mocha --recursive --throw-deprecation --require ts-node/register --require ./src/utils/testUtils/setLogLevelDebug.ts --exit \"src/**/*.test.ts\"; npm run test:stopdb",
+    "test:debug": "npm run test:startdb; TEST_ENV=true AWS_REGION=us-west-2 AWS_ACCESS_KEY_ID=AKID AWS_SECRET_ACCESS_KEY=SECRET WEBHOOK_ENDPOINTS_TABLE=GutenbergTable mocha --recursive --throw-deprecation --require ts-node/register --require ./src/utils/testUtils/setLogLevelDebug.ts --exit \"src/**/*.test.ts\"; npm run test:stopdb",
     "test:startdb": "docker start gutenberg-test || (docker run --name gutenberg-test -p 8000:8000 amazon/dynamodb-local)",
     "test:stopdb": "docker stop gutenberg-test"
   },

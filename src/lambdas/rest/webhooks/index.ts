@@ -1,7 +1,7 @@
 import * as cassava from "cassava";
 import * as giftbitRoutes from "giftbit-cassava-routes";
 import {Webhook} from "../../../db/Webhook";
-import {generateRandomString} from "./secretsGenerator";
+import {generateSecret} from "./webhookSecretUtils";
 import list = Webhook.list;
 
 export function installWebhookRest(router: cassava.Router): void {
@@ -74,7 +74,7 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireIds("teamMemberId");
 
             const webhook = await Webhook.get(auth, evt.pathParameters.id);
-            webhook.secrets.push(generateRandomString(15));
+            webhook.secrets.push(generateSecret(15));
 
             await Webhook.update(auth, webhook);
             return {

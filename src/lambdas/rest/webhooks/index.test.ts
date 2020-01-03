@@ -7,6 +7,7 @@ import {Webhook} from "../../../db/Webhook";
 import {installAuthedRestRoutes} from "../installAuthedRestRoutes";
 import {ParsedProxyResponse} from "../../../utils/testUtils/ParsedProxyResponse";
 import {TestUser} from "../../../utils/testUtils/TestUser";
+import {initializeSecretEncryptionKey} from "./webhookSecretUtils";
 
 describe("webhooks", () => {
 
@@ -14,6 +15,7 @@ describe("webhooks", () => {
 
     before(async function () {
         router.route(testUtils.authRoute);
+        initializeSecretEncryptionKey(Promise.resolve("secret123") /* todo */);
         installAuthedRestRoutes(router);
         await resetDb();
     });
@@ -29,7 +31,6 @@ describe("webhooks", () => {
         chai.assert.equal(create.statusCode, 201);
         chai.assert.deepInclude(create.body, webhook);
         chai.assert.isNotEmpty(create.body.secrets);
-        console.log(create.body.secrets);
 
         const get = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}`, "GET");
         chai.assert.equal(get.statusCode, 200);
