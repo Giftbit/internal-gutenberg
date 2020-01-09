@@ -8,6 +8,9 @@ import {installAuthedRestRoutes} from "../installAuthedRestRoutes";
 import {ParsedProxyResponse} from "../../../utils/testUtils/ParsedProxyResponse";
 import {TestUser} from "../../../utils/testUtils/TestUser";
 import {initializeSecretEncryptionKey} from "./webhookSecretUtils";
+import chaiExclude from "chai-exclude";
+
+chai.use(chaiExclude);
 
 describe("webhooks", () => {
 
@@ -82,7 +85,33 @@ describe("webhooks", () => {
 
         const get = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}`, "GET");
         chai.assert.equal(get.statusCode, 200);
-        chai.assert.deepInclude(get.body, update);
+        chai.assert.deepInclude(get.body, patch.body);
+    });
+
+    it("can add and delete a secret", async () => {
+        const webhook: Partial<Webhook> = {
+            id: generateId(),
+            url: "https://www.example.com/hooks",
+            events: ["*"],
+            active: true,
+        };
+        const create = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", webhook);
+        chai.assert.equal(create.statusCode, 201);
+        chai.assert.deepInclude(create.body, webhook);
+        const secretOne = create.body.secrets[0];
+
+        const addSecret = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}/secrets`, "POST", {});
+        chai.assert.equal(addSecret.statusCode, 201);
+        chai.assert.deepEqualExcluding(addSecret.body, create.body, ["secrets", "updatedDate"]);
+        chai.assert.equal(addSecret.body.secrets.length, 2);
+        chai.assert.equal(addSecret.body.secrets[0], secretOne);
+        chai.assert.notEqual(addSecret.body.secrets[1], secretOne);
+        const secretTwo = addSecret.body.secrets[1];
+        console.log("added secret: " + JSON.stringify(addSecret.body, null, 4));
+
+        const deleteSecret = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}/secrets/${secretOne}`, "DELETE");
+        chai.assert.equal(deleteSecret.statusCode, 200);
+        chai.assert.deepEqualExcluding(deleteSecret.body, {...create.body, secrets: [secretTwo]}, ["updatedDate"]);
     });
 
     it("can list webhooks", async () => {

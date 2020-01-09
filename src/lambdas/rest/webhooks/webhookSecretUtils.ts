@@ -2,6 +2,7 @@ import * as crypto from "crypto";
 import * as cryptojs from "crypto-js";
 
 const CODEBASE_ENCRYPTION_PEPPER = "yRPB2lp1dlOPCRn94N8FuCPFLb4hyNzrsA";
+const SECRET_LENGTH = 16;
 
 let encryptionKey: Promise<string>;
 
@@ -9,11 +10,11 @@ export function initializeSecretEncryptionKey(secret: Promise<string>): void {
     encryptionKey = secret;
 }
 
-export function generateSecret(length: number) {
+export function generateSecret() {
     const ALPHANUMBERIC_CHARSET = Array.from("ABCDEFGHIJKLMNOPQRSTUBWXYZ123456789");
-    const randomBytes = crypto.randomBytes(length);
+    const randomBytes = crypto.randomBytes(SECRET_LENGTH);
     let randomString: string = "";
-    for (let i = 0; i < length; i++) {
+    for (let i = 0; i < SECRET_LENGTH; i++) {
         randomString += ALPHANUMBERIC_CHARSET[randomBytes[i] % ALPHANUMBERIC_CHARSET.length];
     }
     return randomString;
@@ -25,7 +26,6 @@ export async function encryptSecret(secret: string): Promise<string> {
     }
     return cryptojs.AES.encrypt(addCodebasePepperToSecret(secret), await encryptionKey).toString();
 }
-
 
 export async function decryptSecret(secretEncrypted: string): Promise<string> {
     if (!encryptionKey) {

@@ -55,18 +55,19 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireScopes("lightrailV2:webhooks:get");
             auth.requireIds("teamMemberId");
 
-            let webhook: Webhook = evt.body;
+            let webhookUpdates: Partial<Webhook> = evt.body;
             // todo - json schema validation
 
-            await Webhook.update(auth, webhook);
+            const webhook = await Webhook.get(auth, evt.pathParameters.id);
+            const updatedWebhook = {...webhook, ...webhookUpdates};
+            await Webhook.update(auth, updatedWebhook);
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
-                body: webhook
+                body: updatedWebhook
             }
         });
 
-    // todo - i'm not sure this is necessary.
-    router.route("/v2/webhooks/{id}/secret")
+    router.route("/v2/webhooks/{id}/secrets")
         .method("POST")
         .handler(async evt => {
             const auth: giftbitRoutes.jwtauth.AuthorizationBadge = evt.meta["auth"];
@@ -74,7 +75,7 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireIds("teamMemberId");
 
             const webhook = await Webhook.get(auth, evt.pathParameters.id);
-            webhook.secrets.push(generateSecret(15));
+            webhook.secrets.push(generateSecret());
 
             await Webhook.update(auth, webhook);
             return {
@@ -83,7 +84,6 @@ export function installWebhookRest(router: cassava.Router): void {
             }
         });
 
-    // todo - this might not be necessary.
     router.route("/v2/webhooks/{id}/secrets/{secret}")
         .method("DELETE")
         .handler(async evt => {
@@ -98,7 +98,7 @@ export function installWebhookRest(router: cassava.Router): void {
                 throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Webhook with id: ${webhook.id} already exists.`)
             }
             return {
-                statusCode: cassava.httpStatusCode.success.CREATED,
+                statusCode: cassava.httpStatusCode.success.OK,
                 body: webhook
             }
         });

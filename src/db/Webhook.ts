@@ -20,9 +20,8 @@ interface DbWebhook extends Webhook {
     userId: string;
     pk: string;
     sk: string;
+    encryptedSecrets: string[];
 }
-
-const SECRET_LENGTH = 15;
 
 const WEBHOOK_SORT_KEY = "Webhooks/";
 
@@ -43,13 +42,13 @@ export namespace Webhook {
     export async function list(auth: giftbitRoutes.jwtauth.AuthorizationBadge): Promise<Webhook[]> {
         const req = objectDynameh.requestBuilder.buildQueryInput(DbWebhook.getPK(auth), "begins_with", WEBHOOK_SORT_KEY);
         const dbObjects = await queryAll(req);
-        return Promise.all(dbObjects.map(DbWebhook.fromDbObject));
+        return Promise.all(dbObjects.map(o => DbWebhook.fromDbObject(o, false)));
     }
 
     export async function create(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhook: Webhook): Promise<any> {
         webhook.createdDate = new Date().toISOString();
         webhook.updatedDate = webhook.createdDate;
-        webhook.secrets = [webhookSecrets.generateSecret(SECRET_LENGTH)];
+        webhook.secrets = [webhookSecrets.generateSecret()];
         webhook.createdBy = auth.teamMemberId;
 
         const dbWebhookEndpoint: Webhook = await DbWebhook.toDbObject(auth, webhook);
@@ -82,31 +81,36 @@ export namespace Webhook {
 }
 
 namespace DbWebhook {
-    export async function fromDbObject(o: DbWebhook): Promise<Webhook> {
+    export async function fromDbObject(o: DbWebhook, showSecrets: boolean = false): Promise<Webhook> {
         if (!o) {
-            console.log("this is happening");
             return null;
         }
-        const webhookEndpoint = {
-            ...o,
-            secrets: await Promise.all(o.secrets.map(s => decryptSecret(s)))
+        const webhook = {
+            ...o
         };
-        delete webhookEndpoint.userId;
-        delete webhookEndpoint.pk;
-        delete webhookEndpoint.sk;
-        return webhookEndpoint as Webhook;
+        delete webhook.userId;
+        delete webhook.pk;
+        delete webhook.sk;
+
+        if (showSecrets) {
+            webhook.secrets = await Promise.all(o.secrets.map(s => decryptSecret(s)));
+        }
+        delete webhook.encryptedSecrets;
+
+        return webhook as Webhook;
     }
 
-    export async function toDbObject(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhookEndpoint: Webhook): Promise<DbWebhook> {
-        if (!webhookEndpoint) {
+    export async function toDbObject(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhook: Webhook): Promise<DbWebhook> {
+        if (!webhook) {
             return null;
         }
         return {
-            ...webhookEndpoint,
-            secrets: await Promise.all(webhookEndpoint.secrets.map(s => encryptSecret(s))),
+            ...webhook,
+            encryptedSecrets: await Promise.all(webhook.secrets.map(s => encryptSecret(s))),
+            secrets: webhook.secrets.map(s => getSecretLastFour(s)),
             userId: auth.userId,
             pk: getPK(auth),
-            sk: getSK(webhookEndpoint.id)
+            sk: getSK(webhook.id)
         };
     }
 
@@ -117,4 +121,8 @@ namespace DbWebhook {
     export function getSK(webhookEndpointId: string): string {
         return WEBHOOK_SORT_KEY + webhookEndpointId;
     }
+}
+
+export function getSecretLastFour(secret: string) {
+    return "…" + Array.from(secret).slice(-4).join("");
 }
