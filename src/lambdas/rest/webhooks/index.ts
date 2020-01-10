@@ -12,10 +12,11 @@ export function installWebhookRest(router: cassava.Router): void {
             const auth: giftbitRoutes.jwtauth.AuthorizationBadge = evt.meta["auth"];
             auth.requireScopes("lightrailV2:webhooks:list");
             auth.requireIds("teamMemberId");
+            const showSecret: boolean = (evt.queryStringParameters.showSecret === "true");
 
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
-                body: await list(auth)
+                body: await list(auth, showSecret)
             };
         });
 
@@ -26,10 +27,9 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireScopes("lightrailV2:webhooks");
             auth.requireIds("teamMemberId");
 
-            let webhook: Webhook = evt.body;
             // todo - json schema validation
 
-            await Webhook.create(auth, webhook);
+            const webhook = await Webhook.create(auth, evt.body);
             return {
                 statusCode: cassava.httpStatusCode.success.CREATED,
                 body: webhook
@@ -42,9 +42,11 @@ export function installWebhookRest(router: cassava.Router): void {
             const auth: giftbitRoutes.jwtauth.AuthorizationBadge = evt.meta["auth"];
             auth.requireScopes("lightrailV2:webhooks:get");
             auth.requireIds("teamMemberId");
+            const showSecret: boolean = (evt.queryStringParameters.showSecret === "true");
+
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
-                body: await Webhook.get(auth, evt.pathParameters.id)
+                body: await Webhook.get(auth, evt.pathParameters.id, showSecret)
             }
         });
 
@@ -74,7 +76,7 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireScopes("lightrailV2:webhooks:get");
             auth.requireIds("teamMemberId");
 
-            const webhook = await Webhook.get(auth, evt.pathParameters.id);
+            const webhook = await Webhook.get(auth, evt.pathParameters.id, true);
             webhook.secrets.push(generateSecret());
 
             await Webhook.update(auth, webhook);
@@ -91,7 +93,7 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireScopes("lightrailV2:webhooks:get");
             auth.requireIds("teamMemberId");
 
-            const webhook = await Webhook.get(auth, evt.pathParameters.id);
+            const webhook = await Webhook.get(auth, evt.pathParameters.id, true);
             if (webhook.secrets.find(s => s === evt.pathParameters.secret)) {
                 webhook.secrets = webhook.secrets.filter(s => s !== evt.pathParameters.secret);
             } else {

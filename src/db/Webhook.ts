@@ -29,37 +29,37 @@ const WEBHOOK_SORT_KEY = "Webhooks/";
  * Internal API - Operations that can be called from other lambdas within this project.
  */
 export namespace Webhook {
-    export async function get(auth: giftbitRoutes.jwtauth.AuthorizationBadge, id: string): Promise<Webhook> {
+    export async function get(auth: giftbitRoutes.jwtauth.AuthorizationBadge, id: string, showSecret: boolean = false): Promise<Webhook> {
         const req = objectDynameh.requestBuilder.buildGetInput(DbWebhook.getPK(auth), DbWebhook.getSK(id));
         const resp = await dynamodb.getItem(req).promise();
         const dbWebhookEndpoint = objectDynameh.responseUnwrapper.unwrapGetOutput(resp) as DbWebhook;
         if (!dbWebhookEndpoint) {
             throw new giftbitRoutes.GiftbitRestError(404, `Value with id '${id}' not found.`, "WebhookNotFound");
         }
-        return DbWebhook.fromDbObject(dbWebhookEndpoint);
+        return DbWebhook.fromDbObject(dbWebhookEndpoint, showSecret);
     }
 
-    export async function list(auth: giftbitRoutes.jwtauth.AuthorizationBadge): Promise<Webhook[]> {
+    export async function list(auth: giftbitRoutes.jwtauth.AuthorizationBadge, showSecret: boolean = false): Promise<Webhook[]> {
         const req = objectDynameh.requestBuilder.buildQueryInput(DbWebhook.getPK(auth), "begins_with", WEBHOOK_SORT_KEY);
         const dbObjects = await queryAll(req);
-        return Promise.all(dbObjects.map(o => DbWebhook.fromDbObject(o, false)));
+        return Promise.all(dbObjects.map(o => DbWebhook.fromDbObject(o, showSecret)));
     }
 
-    export async function create(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhook: Webhook): Promise<any> {
+    export async function create(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhook: Webhook): Promise<Webhook> {
         webhook.createdDate = new Date().toISOString();
         webhook.updatedDate = webhook.createdDate;
         webhook.secrets = [webhookSecrets.generateSecret()];
         webhook.createdBy = auth.teamMemberId;
 
-        const dbWebhookEndpoint: Webhook = await DbWebhook.toDbObject(auth, webhook);
+        const dbWebhookEndpoint: DbWebhook = await DbWebhook.toDbObject(auth, webhook);
         const req = objectDynameh.requestBuilder.buildPutInput(dbWebhookEndpoint);
         objectDynameh.requestBuilder.addCondition(req, {
             attribute: "pk",
             operator: "attribute_not_exists"
         });
         try {
-            const resp = await dynamodb.putItem(req).promise();
-            return objectDynameh.responseUnwrapper.unwrapGetOutput(resp);
+            await dynamodb.putItem(req).promise();
+            return webhook;
         } catch (e) {
             if (e.code === "ConditionalCheckFailedException") {
                 throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Webhook with id: ${webhook.id} already exists.`)
@@ -81,7 +81,7 @@ export namespace Webhook {
 }
 
 namespace DbWebhook {
-    export async function fromDbObject(o: DbWebhook, showSecrets: boolean = false): Promise<Webhook> {
+    export async function fromDbObject(o: DbWebhook, showSecret: boolean = false): Promise<Webhook> {
         if (!o) {
             return null;
         }
@@ -92,8 +92,8 @@ namespace DbWebhook {
         delete webhook.pk;
         delete webhook.sk;
 
-        if (showSecrets) {
-            webhook.secrets = await Promise.all(o.secrets.map(s => decryptSecret(s)));
+        if (showSecret) {
+            webhook.secrets = await Promise.all(o.encryptedSecrets.map(s => decryptSecret(s)));
         }
         delete webhook.encryptedSecrets;
 

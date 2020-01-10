@@ -107,7 +107,6 @@ describe("webhooks", () => {
         chai.assert.equal(addSecret.body.secrets[0], secretOne);
         chai.assert.notEqual(addSecret.body.secrets[1], secretOne);
         const secretTwo = addSecret.body.secrets[1];
-        console.log("added secret: " + JSON.stringify(addSecret.body, null, 4));
 
         const deleteSecret = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}/secrets/${secretOne}`, "DELETE");
         chai.assert.equal(deleteSecret.statusCode, 200);
@@ -132,7 +131,7 @@ describe("webhooks", () => {
             webhooks.push(webhook.body)
         }
 
-        const list = await newUserRequest<Webhook[]>(router, `/v2/webhooks`, "GET");
+        const list = await newUserRequest<Webhook[]>(router, `/v2/webhooks?showSecret=true`, "GET");
         chai.assert.equal(list.statusCode, 200);
         chai.assert.equal(list.body.length, 5);
         chai.assert.sameDeepMembers<Webhook>(list.body, webhooks);

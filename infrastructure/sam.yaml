@@ -5,6 +5,60 @@ Transform: AWS::Serverless-2016-10-31
 Description: Example project
 Resources:
 
+  RollupFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: EsPostDeployFunction
+    Properties:
+      CodeUri: ../dist/rollup/rollup.zip
+      Handler: index.handler
+      Runtime: nodejs6.10
+      MemorySize: 256
+      Timeout: 300 # seconds, 300 max
+      Environment:
+        Variables:
+          ES_ENDPOINT: !GetAtt ElasticsearchDomain.DomainEndpoint
+          SECURE_CONFIG_BUCKET: !Ref SecureConfigBucket
+          SECURE_CONFIG_KEY_DATADOG: !Ref SecureConfigKeyDataDog
+      Policies:
+      - Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action:
+          - es:ESHttpDelete
+          - es:ESHttpGet
+          - es:ESHttpHead
+          - es:ESHttpPost
+          - es:ESHttpPut
+          Resource:
+          - !GetAtt ElasticsearchDomain.DomainArn
+          - !Sub "${ElasticsearchDomain.DomainArn}/*"
+        - Effect: Allow
+          Action:
+          - s3:GetObject
+          Resource:
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/${SecureConfigKeyDataDog}"
+        - Effect: Allow
+          Action:
+          - kms:Decrypt
+          Resource:
+          - !Ref SecureConfigKmsArn
+          Condition:
+            StringLike:
+              "kms:ViaService":
+                !Sub "s3.${AWS::Region}.amazonaws.com"
+              "kms:EncryptionContext:aws:s3:arn":
+                !Sub "arn:aws:s3:::${SecureConfigBucket}/*"
+      Tags:
+        ShortName: RollupFunction
+        Service: CardsSearch
+      Events:
+        KinesisStream:
+          Type: Kinesis
+          Properties:
+            Stream: !Ref KinesisStreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 100
+
   RestFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -57,6 +111,15 @@ Resources:
           - ses:SendEmail
           - ses:SendRawEmail
           Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${LightrailEmailDomain}"
+      Tags:
+        ShortName: RestFunction
+        Service: Rothschild
+      Events:
+        RestApi:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
 
   GutenbergTable:
     Type: AWS::DynamoDB::Table
