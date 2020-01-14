@@ -3,6 +3,7 @@ import * as cassava from "cassava";
 import {ParsedProxyResponse} from "./ParsedProxyResponse";
 import * as giftbitRoutes from "giftbit-cassava-routes";
 import {TestUser} from "./TestUser";
+import {QUEUE_URL, sqs} from "../../lambdas/events/sqsUtils";
 import log = require("loglevel");
 import uuid = require("uuid/v4");
 
@@ -51,3 +52,12 @@ export const authRoute: cassava.routes.Route = new giftbitRoutes.jwtauth.JwtAuth
     },
     errorLogFunction: log.error
 });
+
+export async function clearQueue(): Promise<void> {
+    try {
+        const res = await sqs.purgeQueue({QueueUrl: QUEUE_URL}).promise();
+        console.log("purged: " + JSON.stringify(res, null, 4));
+    } catch (e) {
+        console.log(e);
+    }
+}

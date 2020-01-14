@@ -1,8 +1,8 @@
 import * as cassava from "cassava";
 import * as chai from "chai";
 import {AuthorizationBadge} from "giftbit-cassava-routes/dist/jwtauth";
-import {generateId} from "./index";
 import {ParsedProxyResponse} from "./ParsedProxyResponse";
+import {generateId} from "./testUtils";
 
 export class TestUser {
     userId: string;
