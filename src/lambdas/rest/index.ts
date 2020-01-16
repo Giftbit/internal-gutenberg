@@ -2,7 +2,7 @@ import * as cassava from "cassava";
 import * as giftbitRoutes from "giftbit-cassava-routes";
 import * as logPrefix from "loglevel-plugin-prefix";
 import {installAuthedRestRoutes} from "./installAuthedRestRoutes";
-import {initializeSecretEncryptionKey} from "./webhooks/webhookSecretUtils";
+import {initializeSecretEncryptionKey} from "./webhookSecretUtils";
 import log = require("loglevel");
 
 // Wrapping console.log instead of binding (default behaviour for loglevel)

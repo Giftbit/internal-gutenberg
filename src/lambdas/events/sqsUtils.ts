@@ -1,5 +1,6 @@
 import * as aws from "aws-sdk";
 import {LightrailEvent} from "./LightrailEvent";
+import {SQSRecord} from "aws-lambda";
 
 export const QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/757264843183/Microservices-TimJ-BatchTaskQueue";
 
@@ -20,8 +21,11 @@ export namespace SqsUtils {
         return await sqs.sendMessage(params).promise();
     }
 
-    export async function deleteMessage(params: any): Promise<any> {
-
+    export async function deleteMessage(record: SQSRecord): Promise<any> {
+        return await sqs.deleteMessage({
+            QueueUrl: QUEUE_URL,
+            ReceiptHandle: record.receiptHandle
+        })
     }
 
     export async function getMessage(): Promise<any> {

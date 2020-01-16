@@ -1,6 +1,6 @@
 import * as cassava from "cassava";
 import * as giftbitRoutes from "giftbit-cassava-routes";
-import {Webhook} from "../../../db/Webhook";
+import {Webhook} from "../../db/Webhook";
 import {generateSecret} from "./webhookSecretUtils";
 import list = Webhook.list;
 
@@ -16,7 +16,7 @@ export function installWebhookRest(router: cassava.Router): void {
 
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
-                body: await list(auth, showSecret)
+                body: await list(auth.userId, showSecret)
             };
         });
 
@@ -29,7 +29,7 @@ export function installWebhookRest(router: cassava.Router): void {
 
             // todo - json schema validation
 
-            const webhook = await Webhook.create(auth, evt.body);
+            const webhook = await Webhook.create(auth.userId, auth.teamMemberId, evt.body);
             return {
                 statusCode: cassava.httpStatusCode.success.CREATED,
                 body: webhook
@@ -46,7 +46,7 @@ export function installWebhookRest(router: cassava.Router): void {
 
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
-                body: await Webhook.get(auth, evt.pathParameters.id, showSecret)
+                body: await Webhook.get(auth.userId, evt.pathParameters.id, showSecret)
             }
         });
 
@@ -60,9 +60,9 @@ export function installWebhookRest(router: cassava.Router): void {
             let webhookUpdates: Partial<Webhook> = evt.body;
             // todo - json schema validation
 
-            const webhook = await Webhook.get(auth, evt.pathParameters.id);
+            const webhook = await Webhook.get(auth.userId, evt.pathParameters.id);
             const updatedWebhook = {...webhook, ...webhookUpdates};
-            await Webhook.update(auth, updatedWebhook);
+            await Webhook.update(auth.userId, updatedWebhook);
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
                 body: updatedWebhook
@@ -76,10 +76,10 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireScopes("lightrailV2:webhooks:get");
             auth.requireIds("teamMemberId");
 
-            const webhook = await Webhook.get(auth, evt.pathParameters.id, true);
+            const webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true);
             webhook.secrets.push(generateSecret());
 
-            await Webhook.update(auth, webhook);
+            await Webhook.update(auth.userId, webhook);
             return {
                 statusCode: cassava.httpStatusCode.success.CREATED,
                 body: webhook
@@ -93,7 +93,7 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireScopes("lightrailV2:webhooks:get");
             auth.requireIds("teamMemberId");
 
-            const webhook = await Webhook.get(auth, evt.pathParameters.id, true);
+            const webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true);
             if (webhook.secrets.find(s => s === evt.pathParameters.secret)) {
                 webhook.secrets = webhook.secrets.filter(s => s !== evt.pathParameters.secret);
             } else {

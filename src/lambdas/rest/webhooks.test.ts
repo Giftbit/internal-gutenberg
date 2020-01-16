@@ -1,11 +1,11 @@
-import * as testUtils from "../../../utils/test/testUtils";
-import {defaultTestUser, generateId, resetDb} from "../../../utils/test/testUtils";
+import * as testUtils from "../../utils/test/testUtils";
+import {defaultTestUser, generateId, resetDb} from "../../utils/test/testUtils";
 import * as chai from "chai";
 import * as cassava from "cassava";
-import {Webhook} from "../../../db/Webhook";
-import {installAuthedRestRoutes} from "../installAuthedRestRoutes";
-import {ParsedProxyResponse} from "../../../utils/test/ParsedProxyResponse";
-import {TestUser} from "../../../utils/test/TestUser";
+import {Webhook} from "../../db/Webhook";
+import {installAuthedRestRoutes} from "./installAuthedRestRoutes";
+import {ParsedProxyResponse} from "../../utils/test/ParsedProxyResponse";
+import {TestUser} from "../../utils/test/TestUser";
 import {initializeSecretEncryptionKey} from "./webhookSecretUtils";
 import chaiExclude from "chai-exclude";
 

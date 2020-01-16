@@ -1,8 +1,8 @@
 import {dynamodb, objectDynameh, queryAll} from "./dynamodb";
 import * as giftbitRoutes from "giftbit-cassava-routes";
 import * as cassava from "cassava";
-import * as webhookSecrets from "../lambdas/rest/webhooks/webhookSecretUtils";
-import {decryptSecret, encryptSecret} from "../lambdas/rest/webhooks/webhookSecretUtils";
+import * as webhookSecrets from "../lambdas/rest/webhookSecretUtils";
+import {decryptSecret, encryptSecret} from "../lambdas/rest/webhookSecretUtils";
 
 export interface Webhook {
     id: string;
@@ -29,8 +29,8 @@ const WEBHOOK_SORT_KEY = "Webhooks/";
  * Internal API - Operations that can be called from other lambdas within this project.
  */
 export namespace Webhook {
-    export async function get(auth: giftbitRoutes.jwtauth.AuthorizationBadge, id: string, showSecret: boolean = false): Promise<Webhook> {
-        const req = objectDynameh.requestBuilder.buildGetInput(DbWebhook.getPK(auth), DbWebhook.getSK(id));
+    export async function get(userId: string, id: string, showSecret: boolean = false): Promise<Webhook> {
+        const req = objectDynameh.requestBuilder.buildGetInput(DbWebhook.getPK(userId), DbWebhook.getSK(id));
         const resp = await dynamodb.getItem(req).promise();
         const dbWebhookEndpoint = objectDynameh.responseUnwrapper.unwrapGetOutput(resp) as DbWebhook;
         if (!dbWebhookEndpoint) {
@@ -39,19 +39,19 @@ export namespace Webhook {
         return DbWebhook.fromDbObject(dbWebhookEndpoint, showSecret);
     }
 
-    export async function list(auth: giftbitRoutes.jwtauth.AuthorizationBadge, showSecret: boolean = false): Promise<Webhook[]> {
-        const req = objectDynameh.requestBuilder.buildQueryInput(DbWebhook.getPK(auth), "begins_with", WEBHOOK_SORT_KEY);
+    export async function list(userId: string, showSecret: boolean = false): Promise<Webhook[]> {
+        const req = objectDynameh.requestBuilder.buildQueryInput(DbWebhook.getPK(userId), "begins_with", WEBHOOK_SORT_KEY);
         const dbObjects = await queryAll(req);
         return Promise.all(dbObjects.map(o => DbWebhook.fromDbObject(o, showSecret)));
     }
 
-    export async function create(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhook: Webhook): Promise<Webhook> {
+    export async function create(userId: string, teamMemberId: string, webhook: Webhook): Promise<Webhook> {
         webhook.createdDate = new Date().toISOString();
         webhook.updatedDate = webhook.createdDate;
         webhook.secrets = [webhookSecrets.generateSecret()];
-        webhook.createdBy = auth.teamMemberId;
+        webhook.createdBy = teamMemberId;
 
-        const dbWebhookEndpoint: DbWebhook = await DbWebhook.toDbObject(auth, webhook);
+        const dbWebhookEndpoint: DbWebhook = await DbWebhook.toDbObject(userId, webhook);
         const req = objectDynameh.requestBuilder.buildPutInput(dbWebhookEndpoint);
         objectDynameh.requestBuilder.addCondition(req, {
             attribute: "pk",
@@ -69,14 +69,29 @@ export namespace Webhook {
         }
     }
 
-    export async function update(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhook: Webhook): Promise<any> {
+    export async function update(userId: string, webhook: Webhook): Promise<any> {
         webhook.updatedDate = new Date().toISOString();
 
-        const dbWebhookEndpoint: Webhook = await DbWebhook.toDbObject(auth, webhook);
+        const dbWebhookEndpoint: Webhook = await DbWebhook.toDbObject(userId, webhook);
         const req = objectDynameh.requestBuilder.buildPutInput(dbWebhookEndpoint);
         const resp = await dynamodb.putItem(req).promise();
 
         return objectDynameh.responseUnwrapper.unwrapGetOutput(resp);
+    }
+
+    export function matchesEvent(subscribedEvents: string[], type: string): boolean {
+        for (const subscribedEvent of subscribedEvents) {
+            if (subscribedEvent === "*") {
+                return true;
+            } else if (subscribedEvent.length > 1 && subscribedEvent.slice(-2) === ".*") {
+                // subscribedEvent without the .* suffix must match the event until the .*
+                const suffixLessSubscription = subscribedEvent.slice(0, subscribedEvent.length - 2);
+                return suffixLessSubscription === type.slice(0, suffixLessSubscription.length);
+            } else {
+                // have to totally match
+            }
+        }
+        return subscribedEvents.indexOf(type) >= 0;
     }
 }
 
@@ -100,7 +115,7 @@ namespace DbWebhook {
         return webhook as Webhook;
     }
 
-    export async function toDbObject(auth: giftbitRoutes.jwtauth.AuthorizationBadge, webhook: Webhook): Promise<DbWebhook> {
+    export async function toDbObject(userId: string, webhook: Webhook): Promise<DbWebhook> {
         if (!webhook) {
             return null;
         }
@@ -108,14 +123,14 @@ namespace DbWebhook {
             ...webhook,
             encryptedSecrets: await Promise.all(webhook.secrets.map(s => encryptSecret(s))),
             secrets: webhook.secrets.map(s => getSecretLastFour(s)),
-            userId: auth.userId,
-            pk: getPK(auth),
+            userId: userId,
+            pk: getPK(userId),
             sk: getSK(webhook.id)
         };
     }
 
-    export function getPK(auth: giftbitRoutes.jwtauth.AuthorizationBadge): string {
-        return "Accounts/" + auth.userId;
+    export function getPK(userId: string): string {
+        return "Accounts/" + userId;
     }
 
     export function getSK(webhookEndpointId: string): string {
@@ -126,3 +141,28 @@ namespace DbWebhook {
 export function getSecretLastFour(secret: string) {
     return "…" + Array.from(secret).slice(-4).join("");
 }
+
+// export function matchesEvent(type: string) {
+//     function getParentScope(scope: string): string {
+//         if (!scope || typeof scope !== "string") {
+//             return null;
+//         }
+//
+//         const lastSeparatorIx = scope.lastIndexOf(":");
+//         if (lastSeparatorIx === -1) {
+//             return null;
+//         }
+//
+//         return scope.substring(0, lastSeparatorIx);
+//     }
+//
+//     /**
+//      * Returns true if this badge contains the given scope or any parent of the scope.
+//      */
+//     for (; type; type = getParentScope(type)) {
+//         if (this.effectiveScopes.indexOf(type) !== -1) {
+//             return true;
+//         }
+//     }
+//     return false;
+// }

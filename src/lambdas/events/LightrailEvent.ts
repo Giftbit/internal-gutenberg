@@ -1,3 +1,5 @@
+import * as awslambda from "aws-lambda";
+
 /**
  * Events that happened in the Lightrail system.  Multiple microservices
  * may generate events and multiple microservices may subscribe to them.
@@ -99,17 +101,18 @@ export namespace LightrailEvent {
             MessageBody: JSON.stringify(event.data)
         }
     }
+}
 
-    export function toLightrailEvent(sqsEvent: LightrailSQSEvent): LightrailEvent {
-        return {
-            specversion: sqsEvent.MessageBody.specversion,
-            type: sqsEvent.MessageBody.type,
-            source: sqsEvent.MessageBody.source,
-            id: sqsEvent.MessageBody.id,
-            time: sqsEvent.MessageBody.time,
-            userid: sqsEvent.MessageBody.userid,
-            datacontenttype: sqsEvent.MessageBody.datacontenttype,
-            data: JSON.parse(sqsEvent.MessageBody)
-        }
+export function sqsRecordToLightrailEvent(record: awslambda.SQSRecord): LightrailEvent {
+    return {
+        specversion: record.messageAttributes["specversion"].stringValue as "1.0",
+        type: record.messageAttributes["type"].stringValue,
+        source: record.messageAttributes["source"].stringValue,
+        id: record.messageAttributes["id"].stringValue,
+        time: record.messageAttributes["time"].stringValue,
+        userid: record.messageAttributes["userid"].stringValue,
+        datacontenttype: "application/json",
+
+        data: JSON.parse(record.body)
     }
 }
