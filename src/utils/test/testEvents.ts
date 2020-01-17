@@ -21,6 +21,6 @@ export namespace TestEvents {
                 },
                 createdDate: date.toISOString()
             }
-        }
+        };
     }
 }

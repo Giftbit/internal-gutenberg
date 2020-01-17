@@ -47,7 +47,7 @@ export function installWebhookRest(router: cassava.Router): void {
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
                 body: await Webhook.get(auth.userId, evt.pathParameters.id, showSecret)
-            }
+            };
         });
 
     router.route("/v2/webhooks/{id}")
@@ -66,7 +66,7 @@ export function installWebhookRest(router: cassava.Router): void {
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
                 body: updatedWebhook
-            }
+            };
         });
 
     router.route("/v2/webhooks/{id}/secrets")
@@ -83,7 +83,7 @@ export function installWebhookRest(router: cassava.Router): void {
             return {
                 statusCode: cassava.httpStatusCode.success.CREATED,
                 body: webhook
-            }
+            };
         });
 
     router.route("/v2/webhooks/{id}/secrets/{secret}")
@@ -97,11 +97,11 @@ export function installWebhookRest(router: cassava.Router): void {
             if (webhook.secrets.find(s => s === evt.pathParameters.secret)) {
                 webhook.secrets = webhook.secrets.filter(s => s !== evt.pathParameters.secret);
             } else {
-                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Webhook with id: ${webhook.id} already exists.`)
+                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Webhook with id: ${webhook.id} already exists.`);
             }
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
                 body: webhook
-            }
+            };
         });
 }

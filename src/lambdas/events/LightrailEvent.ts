@@ -68,23 +68,37 @@ export interface LightrailEvent {
      * is not a breaking change.
      */
     data: any;
+
+    /**
+     * If the event has to be re-queued after some successful and unsuccessful callbacks
+     * this list will allow the webhook to know which webhooks it doesn't need to
+     * call again.
+     */
+    failedWebhookIds?: string[];
 }
 
 interface StringValueDataType {
-    DataType: "String",
+    DataType: "String";
     StringValue: string;
 }
 
 export interface LightrailSQSEvent {
     MessageAttributes: {
-        type: StringValueDataType
-        source: StringValueDataType
-        id: StringValueDataType
-        time: StringValueDataType
+        type: StringValueDataType;
+        source: StringValueDataType;
+        id: StringValueDataType;
+        time: StringValueDataType;
         datacontenttype: StringValueDataType;
-        userId?: StringValueDataType; // todo <tim> not sure how this can be optional.
+        userid?: StringValueDataType; // todo <tim> not sure how this can be optional.
+        failedWebhookIds: StringValueDataType;
     };
     MessageBody: any;
+}
+
+export interface LightrailPublicFacingEvent {
+    type: string;
+    time: Date | string;
+    data: any;
 }
 
 export namespace LightrailEvent {
@@ -96,10 +110,22 @@ export namespace LightrailEvent {
                 id: {DataType: "String", StringValue: event.id},
                 time: {DataType: "String", StringValue: event.time.toString()},
                 datacontenttype: {DataType: "String", StringValue: event.datacontenttype},
-                userId: {DataType: "String", StringValue: event.userid},
+                userid: {DataType: "String", StringValue: event.userid},
+                failedWebhookIds: {
+                    DataType: "String",
+                    StringValue: JSON.stringify((event.failedWebhookIds ? event.failedWebhookIds : []))
+                }
             },
             MessageBody: JSON.stringify(event.data)
-        }
+        };
+    }
+
+    export function toPublicFacingEvent(event: LightrailEvent) {
+        return {
+            type: event.type,
+            time: event.time,
+            data: event.data
+        };
     }
 }
 
@@ -112,7 +138,7 @@ export function sqsRecordToLightrailEvent(record: awslambda.SQSRecord): Lightrai
         time: record.messageAttributes["time"].stringValue,
         userid: record.messageAttributes["userid"].stringValue,
         datacontenttype: "application/json",
-
+        failedWebhookIds: record.messageAttributes["failedWebhookIds"] ? JSON.parse(record.messageAttributes["failedWebhookIds"].stringValue) : [],
         data: JSON.parse(record.body)
-    }
+    };
 }

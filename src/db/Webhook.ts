@@ -62,7 +62,7 @@ export namespace Webhook {
             return webhook;
         } catch (e) {
             if (e.code === "ConditionalCheckFailedException") {
-                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Webhook with id: ${webhook.id} already exists.`)
+                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Webhook with id: ${webhook.id} already exists.`);
             } else {
                 throw e;
             }

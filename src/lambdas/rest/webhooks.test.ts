@@ -127,7 +127,7 @@ describe("webhooks", () => {
             };
             const webhook = await newUserRequest<Webhook>(router, "/v2/webhooks", "POST", partialWebhook);
             chai.assert.equal(webhook.statusCode, 201);
-            webhooks.push(webhook.body)
+            webhooks.push(webhook.body);
         }
 
         const list = await newUserRequest<Webhook[]>(router, `/v2/webhooks?showSecret=true`, "GET");

@@ -7,7 +7,7 @@ export const QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/757264843183/Micro
 export const sqs = new aws.SQS({
     // apiVersion: "2012-08-10",
     // endpoint: process.env["TEST_ENV"] === "true" ? "http://localhost:8000" : undefined,
-    region: "us-west-2", //process.env["AWS_REGION"] //  AWS_REGION=us-west-2
+    region: "us-west-2", // process.env["AWS_REGION"] //  AWS_REGION=us-west-2
 });
 
 export namespace SqsUtils {
@@ -25,11 +25,15 @@ export namespace SqsUtils {
         return await sqs.deleteMessage({
             QueueUrl: QUEUE_URL,
             ReceiptHandle: record.receiptHandle
-        })
+        });
     }
 
     export async function getMessage(): Promise<any> {
-        return await sqs.receiveMessage({QueueUrl: QUEUE_URL}).promise()
+        return await sqs.receiveMessage({QueueUrl: QUEUE_URL}).promise();
+    }
+
+    export async function sendMessageWithExponentialBackoff(event: LightrailEvent, previousVisibilityTimeout: number): Promise<any> {
+        previousVisibilityTimeout
     }
 }
 
