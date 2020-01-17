@@ -5,34 +5,44 @@ import {SqsUtils} from "./sqsUtils";
 import {Webhook} from "../../db/Webhook";
 import {getSignatures} from "./signatureUtils";
 import {sendDataToCallback} from "./callbackUtils";
+import {sameElements} from "../../utils/arrayUtils";
 import log = require("loglevel");
 
 export async function processSQSRecord(record: awslambda.SQSRecord): Promise<void> {
-    let lightrailEvent: LightrailEvent = sqsRecordToLightrailEvent(record);
+    const lightrailEvent: LightrailEvent = sqsRecordToLightrailEvent(record);
     try {
-        lightrailEvent = await processLightrailEvent(lightrailEvent);
-        if (lightrailEvent.failedWebhookIds.length > 0) {
-
+        const failedWebhookIds: string[] = (await processLightrailEvent(lightrailEvent)).failedWebhookIds;
+        if (failedWebhookIds) {
+            if (!sameElements(failedWebhookIds, lightrailEvent.failedWebhookIds)) {
+                // TODO - Requeue Updated Event
+                // They don't contain same elements. Need to send new SQS message with updated failedWebhookId list
+                // and delete the old message.
+                lightrailEvent.failedWebhookIds = failedWebhookIds;
+                await SqsUtils.sendMessage(lightrailEvent, 30 /* the call to the webhook just failed. this 30sec delay is quite haphazard.*/);
+                await SqsUtils.deleteMessage(record);
+            } else {
+                // TODO - HandleRetryForSameThirdPartyFailures
+                // Same failing webhook ids. Exponentially backoff the old message.
+                return await handleRetryForSameFailingWebhookIds(record);
+            }
         } else {
+            // TODO - DeleteEvent
+            // No failed webhook Ids. It might mean there were non to send. Delete message.
             await SqsUtils.deleteMessage(record);
         }
     } catch (e) {
         if (e instanceof DeleteMessageError) {
             await SqsUtils.deleteMessage(record);
         } else {
-            // an unexpected error occurred.
-            // todo - exponentially backoff message visibility
-            // todo - what about the case when we need to update which webhooks were successful?
+            // An unexpected error occurred. Will backoff to a maximum of 12 hours.
+            // Won't delete the message off the queue after 3 days because this represents
+            // an unexpected failure on our side. The message will be retried for up to 14 days.
+            await SqsUtils.backoff(record);
         }
     }
-
-    // success = delete message
-    // unknown error = exponentially backoff
-
-
 }
 
-export async function processLightrailEvent(event: LightrailEvent): Promise<LightrailEvent> {
+export async function processLightrailEvent(event: LightrailEvent): Promise<{ failedWebhookIds: string[] }> {
     if (!event.userid) {
         throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a userid. It cannot be processed. Deleting message from queue.`);
     }
@@ -59,9 +69,14 @@ export async function processLightrailEvent(event: LightrailEvent): Promise<Ligh
         }
     }
 
-    if (failedWebhookIds) {
-        event.failedWebhookIds = failedWebhookIds;
-    }
+    return {failedWebhookIds: failedWebhookIds};
+}
 
-    return event;
+async function handleRetryForSameFailingWebhookIds(record: awslambda.SQSRecord): Promise<any> {
+    if (new Date().getTime() - parseInt(record.attributes.SentTimestamp) > 259200000 /* 3 days in ms = 3d * 24h * 60m * 60s * 1000ms */) {
+        // exceeds 3 days. delete
+        return await SqsUtils.deleteMessage(record);
+    } else {
+        return await SqsUtils.backoff(record);
+    }
 }
