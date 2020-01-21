@@ -2,7 +2,7 @@ import {Webhook} from "./Webhook";
 import * as chai from "chai";
 
 describe("Webhook", () => {
-    describe("matches", () => {
+    describe.only("matches", () => {
         interface MatchTest {
             events: string[];
             event: string;

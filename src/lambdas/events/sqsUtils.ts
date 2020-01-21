@@ -3,6 +3,7 @@ import {LightrailEvent} from "./LightrailEvent";
 import {SQSRecord} from "aws-lambda";
 
 export const QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/757264843183/Microservices-TimJ-BatchTaskQueue";
+const MAX_VISILIBILTY_TIMEOUT = 43200;
 
 export const sqs = new aws.SQS({
     // apiVersion: "2012-08-10",
@@ -34,18 +35,21 @@ export namespace SqsUtils {
 
     export async function backoff(record: SQSRecord): Promise<any> {
         const receivedCount = parseInt(record.attributes.ApproximateReceiveCount);
-        const jitterMultiplier = 10 + getJitter();
-        const visibilityTimeout = Math.min(Math.pow(receivedCount, 2) * (10 + jitterMultiplier) /* random scalar multiplier */, 43200);
+
         const params: aws.SQS.ChangeMessageVisibilityRequest = {
             ReceiptHandle: record.receiptHandle,
             QueueUrl: QUEUE_URL,
-            VisibilityTimeout: visibilityTimeout
+            VisibilityTimeout: getBackoffTimeout(receivedCount)
         };
         return await sqs.changeMessageVisibility(params)
     }
 }
 
-// returns a number between 0-10
-export function getJitter(): number {
-    return Math.random() * 10;
+/**
+ * Returns a number between 0 - min(2 ^ receivedCount * 5, 43200)
+ * Based on: https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
+ */
+export function getBackoffTimeout(receivedCount: number): number {
+    const backoff = Math.min(MAX_VISILIBILTY_TIMEOUT, Math.pow(2, receivedCount) * 5 /* base backoff multiplier 5s - quite haphazard in choice */);
+    return Math.floor(Math.random() * backoff); // Full jitter. Between 0 and the new calculated backoff.
 }

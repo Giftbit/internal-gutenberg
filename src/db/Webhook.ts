@@ -79,19 +79,22 @@ export namespace Webhook {
         return objectDynameh.responseUnwrapper.unwrapGetOutput(resp);
     }
 
-    export function matchesEvent(subscribedEvents: string[], type: string): boolean {
+    export function matchesEvent(subscribedEvents: string[], eventType: string): boolean {
         for (const subscribedEvent of subscribedEvents) {
             if (subscribedEvent === "*") {
                 return true;
             } else if (subscribedEvent.length > 1 && subscribedEvent.slice(-2) === ".*") {
                 // subscribedEvent without the .* suffix must match the event until the .*
                 const suffixLessSubscription = subscribedEvent.slice(0, subscribedEvent.length - 2);
-                return suffixLessSubscription === type.slice(0, suffixLessSubscription.length);
+                return suffixLessSubscription === eventType.slice(0, suffixLessSubscription.length);
             } else {
                 // have to totally match
+                if (subscribedEvent === eventType) {
+                    return true;
+                }
             }
         }
-        return subscribedEvents.indexOf(type) >= 0;
+        return false;
     }
 }
 

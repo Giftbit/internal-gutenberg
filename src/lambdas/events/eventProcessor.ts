@@ -9,26 +9,24 @@ import {sameElements} from "../../utils/arrayUtils";
 import log = require("loglevel");
 
 export async function processSQSRecord(record: awslambda.SQSRecord): Promise<void> {
-    const lightrailEvent: LightrailEvent = sqsRecordToLightrailEvent(record);
+    const event: LightrailEvent = sqsRecordToLightrailEvent(record);
     try {
-        const failedWebhookIds: string[] = (await processLightrailEvent(lightrailEvent)).failedWebhookIds;
-        if (failedWebhookIds) {
-            if (!sameElements(failedWebhookIds, lightrailEvent.failedWebhookIds)) {
-                // TODO - Requeue Updated Event
-                // They don't contain same elements. Need to send new SQS message with updated failedWebhookId list
-                // and delete the old message.
-                lightrailEvent.failedWebhookIds = failedWebhookIds;
-                await SqsUtils.sendMessage(lightrailEvent, 30 /* the call to the webhook just failed. this 30sec delay is quite haphazard.*/);
-                await SqsUtils.deleteMessage(record);
-            } else {
-                // TODO - HandleRetryForSameThirdPartyFailures
-                // Same failing webhook ids. Exponentially backoff the old message.
-                return await handleRetryForSameFailingWebhookIds(record);
-            }
-        } else {
-            // TODO - DeleteEvent
-            // No failed webhook Ids. It might mean there were non to send. Delete message.
+        const messageAction: ProcessesEventResult = await processLightrailEvent(event);
+        if (messageAction.status === "FINISHED") {
             await SqsUtils.deleteMessage(record);
+        } else /* FAILED */ {
+            if (sameElements(messageAction.failedWebhookIds, event.failedWebhookIds)) {
+                await handleRetryForSameFailingWebhookIds(record);
+            } else {
+                // This occurs when there are new failing webhook ids. This can occur on the first run
+                // because there are no failing webhook ids to begin with. Webhooks that have already
+                // been successfully called should not be called again. To prevent this a list of failed
+                // webhook ids must be stored on the SQS message. SQS messages cannot be updated. As such
+                // it must be queued as a new message.
+                event.failedWebhookIds = messageAction.failedWebhookIds;
+                await SqsUtils.sendMessage(event, 30 /* the call to the webhook just failed. this 30sec delay is quite haphazard.*/);
+                await SqsUtils.deleteMessage(record);
+            }
         }
     } catch (e) {
         if (e instanceof DeleteMessageError) {
@@ -36,22 +34,23 @@ export async function processSQSRecord(record: awslambda.SQSRecord): Promise<voi
         } else {
             // An unexpected error occurred. Will backoff to a maximum of 12 hours.
             // Won't delete the message off the queue after 3 days because this represents
-            // an unexpected failure on our side. The message will be retried for up to 14 days.
+            // an unexpected failure on our side. The message will be retried for up to 14 days
+            // which is the maximum length a message can be in an sqs queue.
             await SqsUtils.backoff(record);
         }
     }
 }
 
-export async function processLightrailEvent(event: LightrailEvent): Promise<{ failedWebhookIds: string[] }> {
+export async function processLightrailEvent(event: LightrailEvent): Promise<ProcessesEventResult> {
     if (!event.userid) {
         throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a userid. It cannot be processed. Deleting message from queue.`);
     }
 
-    const webhooks: Webhook[] = await Webhook.list(event.userid);
+    const webhooks: Webhook[] = await getActiveWebhooks(event.userid);
     log.info(`Retrieved ${JSON.stringify(webhooks)}`);
 
     const failedWebhookIds: string[] = [];
-    const isRetry = event.failedWebhookIds.length > 0;
+    const isRetry = event.failedWebhookIds && event.failedWebhookIds.length > 0;
     for (const webhook of webhooks) {
         if (Webhook.matchesEvent(webhook.events, event.type) && (!isRetry || (isRetry && event.failedWebhookIds.includes(webhook.id)))) {
             log.info(`Webhook ${JSON.stringify(webhook)} matches event ${event.type}.`);
@@ -69,7 +68,11 @@ export async function processLightrailEvent(event: LightrailEvent): Promise<{ fa
         }
     }
 
-    return {failedWebhookIds: failedWebhookIds};
+    if (failedWebhookIds.length === 0) {
+        return {status: "FINISHED"};
+    } else {
+        return {status: "FAILED", failedWebhookIds: failedWebhookIds}
+    }
 }
 
 async function handleRetryForSameFailingWebhookIds(record: awslambda.SQSRecord): Promise<any> {
@@ -79,4 +82,12 @@ async function handleRetryForSameFailingWebhookIds(record: awslambda.SQSRecord):
     } else {
         return await SqsUtils.backoff(record);
     }
+}
+
+export type ProcessesEventResult =
+    { status: "FINISHED" }
+    | { status: "FAILED", failedWebhookIds: string[] };
+
+async function getActiveWebhooks(userId: string): Promise<Webhook[]> {
+    return (await Webhook.list(userId)).filter(webhook => webhook.active);
 }

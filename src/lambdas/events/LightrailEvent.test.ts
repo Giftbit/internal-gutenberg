@@ -3,7 +3,7 @@ import {LightrailEvent, sqsRecordToLightrailEvent} from "./LightrailEvent";
 import * as chai from "chai";
 import {defaultTestUser, generateId} from "../../utils/test/testUtils";
 
-describe.only("LightrailEvent", () => {
+describe("LightrailEvent", () => {
 
     it("sqsRecordToLightrailEvent", () => {
         const date = new Date("2020");
