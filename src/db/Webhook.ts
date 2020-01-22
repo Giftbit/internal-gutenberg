@@ -3,6 +3,7 @@ import * as giftbitRoutes from "giftbit-cassava-routes";
 import * as cassava from "cassava";
 import * as webhookSecrets from "../lambdas/rest/webhookSecretUtils";
 import {decryptSecret, encryptSecret} from "../lambdas/rest/webhookSecretUtils";
+import {LightrailEvent} from "../lambdas/events/LightrailEvent";
 
 export interface Webhook {
     id: string;
@@ -77,6 +78,11 @@ export namespace Webhook {
         const resp = await dynamodb.putItem(req).promise();
 
         return objectDynameh.responseUnwrapper.unwrapGetOutput(resp);
+    }
+
+    export function shouldProcessEvent(event: LightrailEvent, webhook: Webhook): boolean {
+        const isRetry = event.failedWebhookIds && event.failedWebhookIds.length > 0;
+        return Webhook.matchesEvent(webhook.events, event.type) && (!isRetry || (isRetry && event.failedWebhookIds.includes(webhook.id)));
     }
 
     export function matchesEvent(subscribedEvents: string[], eventType: string): boolean {

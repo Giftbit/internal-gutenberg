@@ -50,17 +50,16 @@ export async function processLightrailEvent(event: LightrailEvent): Promise<Proc
     log.info(`Retrieved ${JSON.stringify(webhooks)}`);
 
     const failedWebhookIds: string[] = [];
-    const isRetry = event.failedWebhookIds && event.failedWebhookIds.length > 0;
     for (const webhook of webhooks) {
-        if (Webhook.matchesEvent(webhook.events, event.type) && (!isRetry || (isRetry && event.failedWebhookIds.includes(webhook.id)))) {
+        if (Webhook.shouldProcessEvent(event, webhook)) {
             log.info(`Webhook ${JSON.stringify(webhook)} matches event ${event.type}.`);
             const body = LightrailEvent.toPublicFacingEvent(event);
             const signatures = getSignatures(webhook.secrets, body);
             const call = await sendDataToCallback(signatures, webhook.url, body);
             log.info(`Sent event to callback. Callback returned ${JSON.stringify(call)}`);
             if (call.statusCode >= 200 && call.statusCode < 300) {
-                // success.
-                // do nothing!
+                // todo metric success?
+                log.info(`Successfully called webhook ${JSON.stringify(webhook)} for event: ${JSON.stringify(event)}.`)
             } else {
                 // will need to retry this webhook
                 failedWebhookIds.push(webhook.id);
