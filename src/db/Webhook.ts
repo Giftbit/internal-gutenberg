@@ -3,7 +3,6 @@ import * as giftbitRoutes from "giftbit-cassava-routes";
 import * as cassava from "cassava";
 import * as webhookSecrets from "../lambdas/rest/webhookSecretUtils";
 import {decryptSecret, encryptSecret} from "../lambdas/rest/webhookSecretUtils";
-import {LightrailEvent} from "../lambdas/events/LightrailEvent";
 
 export interface Webhook {
     id: string;
@@ -80,22 +79,17 @@ export namespace Webhook {
         return objectDynameh.responseUnwrapper.unwrapGetOutput(resp);
     }
 
-    export function shouldProcessEvent(event: LightrailEvent, webhook: Webhook): boolean {
-        const isRetry = event.failedWebhookIds && event.failedWebhookIds.length > 0;
-        return Webhook.matchesEvent(webhook.events, event.type) && (!isRetry || (isRetry && event.failedWebhookIds.includes(webhook.id)));
-    }
-
-    export function matchesEvent(subscribedEvents: string[], eventType: string): boolean {
-        for (const subscribedEvent of subscribedEvents) {
-            if (subscribedEvent === "*") {
+    export function matchesEvent(eventSubscriptions: string[], eventType: string): boolean {
+        for (const eventSubscription of eventSubscriptions) {
+            if (eventSubscription === "*") {
                 return true;
-            } else if (subscribedEvent.length > 1 && subscribedEvent.slice(-2) === ".*") {
+            } else if (eventSubscription.length > 1 && eventSubscription.slice(-2) === ".*") {
                 // subscribedEvent without the .* suffix must match the event until the .*
-                const suffixLessSubscription = subscribedEvent.slice(0, subscribedEvent.length - 2);
+                const suffixLessSubscription = eventSubscription.slice(0, eventSubscription.length - 2);
                 return suffixLessSubscription === eventType.slice(0, suffixLessSubscription.length);
             } else {
                 // have to totally match
-                if (subscribedEvent === eventType) {
+                if (eventSubscription === eventType) {
                     return true;
                 }
             }

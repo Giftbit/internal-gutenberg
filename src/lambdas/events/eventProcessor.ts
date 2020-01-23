@@ -10,12 +10,13 @@ import log = require("loglevel");
 
 export async function processSQSRecord(record: awslambda.SQSRecord): Promise<void> {
     const event: LightrailEvent = sqsRecordToLightrailEvent(record);
+    console.log("LOADED EVENT: " + JSON.stringify(event, null, 4));
     try {
         const messageAction: ProcessesEventResult = await processLightrailEvent(event);
         if (messageAction.status === "FINISHED") {
             await SqsUtils.deleteMessage(record);
         } else /* FAILED */ {
-            if (sameElements(messageAction.failedWebhookIds, event.failedWebhookIds)) {
+            if (sameElements(messageAction.deliveredWebhookIds, event.deliveredWebhookIds)) {
                 await handleRetryForSameFailingWebhookIds(record);
             } else {
                 // This occurs when there are new failing webhook ids. This can occur on the first run
@@ -23,7 +24,7 @@ export async function processSQSRecord(record: awslambda.SQSRecord): Promise<voi
                 // been successfully called should not be called again. To prevent this a list of failed
                 // webhook ids must be stored on the SQS message. SQS messages cannot be updated. As such
                 // it must be queued as a new message.
-                event.failedWebhookIds = messageAction.failedWebhookIds;
+                event.deliveredWebhookIds = messageAction.deliveredWebhookIds;
                 await SqsUtils.sendMessage(event, 30 /* the call to the webhook just failed. this 30sec delay is quite haphazard.*/);
                 await SqsUtils.deleteMessage(record);
             }
@@ -46,32 +47,34 @@ export async function processLightrailEvent(event: LightrailEvent): Promise<Proc
         throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a userid. It cannot be processed. Deleting message from queue.`);
     }
 
-    const webhooks: Webhook[] = await getActiveWebhooks(event.userid);
+    const webhooks: Webhook[] = await Webhook.list(event.userid);
     log.info(`Retrieved ${JSON.stringify(webhooks)}`);
 
+    const deliveredWebhookIds: string[] = event.deliveredWebhookIds ? event.deliveredWebhookIds : [];
+    const webhooksToProcess = webhooks.filter(webhook => webhook.active && deliveredWebhookIds.indexOf(webhook.id) === -1);
     const failedWebhookIds: string[] = [];
-    for (const webhook of webhooks) {
-        if (Webhook.shouldProcessEvent(event, webhook)) {
+    for (const webhook of webhooksToProcess) {
+        if (Webhook.matchesEvent(webhook.events, event.type)) {
+
             log.info(`Webhook ${JSON.stringify(webhook)} matches event ${event.type}.`);
             const body = LightrailEvent.toPublicFacingEvent(event);
             const signatures = getSignatures(webhook.secrets, body);
             const call = await sendDataToCallback(signatures, webhook.url, body);
             log.info(`Sent event to callback. Callback returned ${JSON.stringify(call)}`);
+
             if (call.statusCode >= 200 && call.statusCode < 300) {
                 // todo metric success?
-                log.info(`Successfully called webhook ${JSON.stringify(webhook)} for event: ${JSON.stringify(event)}.`)
+                log.info(`Successfully called webhook ${JSON.stringify(webhook)} for event: ${JSON.stringify(event)}.`);
+                deliveredWebhookIds.push(webhook.id);
             } else {
                 // will need to retry this webhook
+                log.info(`Failed calling webhook ${JSON.stringify(webhook)} for event: ${JSON.stringify(event)}.`);
                 failedWebhookIds.push(webhook.id);
             }
         }
     }
 
-    if (failedWebhookIds.length === 0) {
-        return {status: "FINISHED"};
-    } else {
-        return {status: "FAILED", failedWebhookIds: failedWebhookIds}
-    }
+    return {status: failedWebhookIds.length > 0 ? "FAILED" : "FINISHED", deliveredWebhookIds: deliveredWebhookIds};
 }
 
 async function handleRetryForSameFailingWebhookIds(record: awslambda.SQSRecord): Promise<any> {
@@ -84,8 +87,8 @@ async function handleRetryForSameFailingWebhookIds(record: awslambda.SQSRecord):
 }
 
 export type ProcessesEventResult =
-    { status: "FINISHED" }
-    | { status: "FAILED", failedWebhookIds: string[] };
+    { status: "FINISHED", deliveredWebhookIds: string[] }
+    | { status: "FAILED", deliveredWebhookIds: string[] };
 
 async function getActiveWebhooks(userId: string): Promise<Webhook[]> {
     return (await Webhook.list(userId)).filter(webhook => webhook.active);

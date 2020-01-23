@@ -40,7 +40,7 @@ describe.only("eventProcessor", () => {
 
         const res = await processLightrailEvent(event);
         chai.assert.equal(res.status, "FINISHED");
-    });
+    }).timeout(10000);
 
     it("can process event where user has 1 matching webhook - FINISHED", async () => {
         sinonSandbox.restore();
@@ -78,6 +78,7 @@ describe.only("eventProcessor", () => {
 
         const res = await processLightrailEvent(event);
         chai.assert.equal(res.status, "FINISHED");
+        chai.assert.sameMembers(res.deliveredWebhookIds, [webhook.id]);
         chai.assert.isNotNull(callbackStub.firstCall);
         chai.assert.isNull(callbackStub.secondCall);
     });
@@ -128,6 +129,7 @@ describe.only("eventProcessor", () => {
 
         const res = await processLightrailEvent(event);
         chai.assert.equal(res.status, "FINISHED");
+        chai.assert.sameMembers(res.deliveredWebhookIds, [webhook.id, create2.body.id]);
         chai.assert.isNotNull(callbackStub.secondCall);
         chai.assert.isNull(callbackStub.thirdCall);
         sinonSandbox.restore()
@@ -211,7 +213,7 @@ describe.only("eventProcessor", () => {
         chai.assert.isNull(callbackStub.firstCall);
     });
 
-    it("returns FAILED status and failingWebhookIds on non-2XX response code", async () => {
+    it("returns FAILED status and empty deliverWebhookIds list on non-2XX response code", async () => {
         sinonSandbox.restore();
         await resetDb();
         const webhook: Partial<Webhook> = {
@@ -243,19 +245,18 @@ describe.only("eventProcessor", () => {
                 seats: 120,
                 brand: "boeing"
             },
-            failedWebhookIds: []
+            deliveredWebhookIds: []
         };
 
         const res = await processLightrailEvent(event);
         chai.assert.equal(res.status, "FAILED");
-        chai.assert.sameMembers(res["failedWebhookIds"], [webhook.id]);
+        chai.assert.equal(res["deliveredWebhookIds"].length, 0);
         chai.assert.isNotNull(callbackStub.firstCall);
         chai.assert.isNull(callbackStub.secondCall);
         sinonSandbox.restore();
     });
 
-    // todo this isn't where backoff test lives.
-    it("will backoff on same failingWebhookIds", async () => {
+    it("doesn't re-call already delivered webhookIds - call to second webhook again fails", async () => {
         sinonSandbox.restore();
         await resetDb();
         const webhook: Partial<Webhook> = {
@@ -264,12 +265,17 @@ describe.only("eventProcessor", () => {
             events: ["*"],
             active: true,
         };
-        const create = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", webhook);
-        chai.assert.equal(create.statusCode, 201);
+        const create1 = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", webhook);
+        chai.assert.equal(create1.statusCode, 201);
+        const create2 = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", {
+            ...webhook,
+            id: generateId()
+        });
+        chai.assert.equal(create2.statusCode, 201);
 
         const callbackStub = sinonSandbox.stub(callbackUtils, "sendDataToCallback")
             .onFirstCall().resolves({
-                statusCode: 300,
+                statusCode: 404,
                 headers: null,
                 body: {}
             });
@@ -287,54 +293,15 @@ describe.only("eventProcessor", () => {
                 seats: 120,
                 brand: "boeing"
             },
-            failedWebhookIds: [webhook.id]
+            deliveredWebhookIds: [webhook.id]
         };
 
         const res = await processLightrailEvent(event);
         chai.assert.equal(res.status, "FAILED");
-        chai.assert.sameMembers(res["failedWebhookIds"], [webhook.id]);
+        chai.assert.sameMembers(res["deliveredWebhookIds"], [webhook.id]);
         chai.assert.isNotNull(callbackStub.firstCall);
+        console.log(JSON.stringify(callbackStub.firstCall.args));
         chai.assert.isNull(callbackStub.secondCall);
-    });
-
-    it("will backoff on non 2xx status code - 300", async () => {
         sinonSandbox.restore();
-        await resetDb();
-        const webhook: Partial<Webhook> = {
-            id: generateId(),
-            url: "https://localhost:8080/tests/callback/success",
-            events: ["*"],
-            active: true,
-        };
-        const create = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", webhook);
-        chai.assert.equal(create.statusCode, 201);
-
-        const callbackStub = sinonSandbox.stub(callbackUtils, "sendDataToCallback")
-            .onFirstCall().resolves({
-                statusCode: 300,
-                headers: null,
-                body: {}
-            });
-
-        const event: LightrailEvent = {
-            specversion: "1.0",
-            type: "plane.created",
-            source: "/gutenberg/tests",
-            id: generateId(),
-            time: new Date(),
-            userid: defaultTestUser.userId,
-            datacontenttype: "application/json",
-            data: {
-                wings: 2,
-                seats: 120,
-                brand: "boeing"
-            }
-        };
-
-        const res = await processLightrailEvent(event);
-        chai.assert.equal(res.status, "FAILED");
-        chai.assert.sameMembers(res["failedWebhookIds"], [webhook.id]);
-        chai.assert.isNotNull(callbackStub.firstCall);
-        chai.assert.isNull(callbackStub.secondCall);
     });
-});
+}).timeout(10000);

@@ -63,7 +63,7 @@ describe("LightrailEvent", () => {
             "time": "2020-01-01T00:00:00.000Z",
             "userid": "user-123",
             "datacontenttype": "application/json",
-            "failedWebhookIds": [],
+            "deliveredWebhookIds": [],
             "data": {"plane": "boeing"}
         });
 
@@ -71,7 +71,7 @@ describe("LightrailEvent", () => {
             ...sqsRecord,
             messageAttributes: {
                 ...sqsRecord.messageAttributes,
-                failedWebhookIds: {
+                deliveredWebhookIds: {
                     dataType: "String",
                     stringValue: JSON.stringify(["webhook1", "webhook2"]),
                     stringListValues: null,
@@ -88,7 +88,7 @@ describe("LightrailEvent", () => {
             "time": "2020-01-01T00:00:00.000Z",
             "userid": "user-123",
             "datacontenttype": "application/json",
-            "failedWebhookIds": ["webhook1", "webhook2"],
+            "deliveredWebhookIds": ["webhook1", "webhook2"],
             "data": {"plane": "boeing"}
         });
 

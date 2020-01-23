@@ -74,7 +74,7 @@ export interface LightrailEvent {
      * this list will allow the webhook to know which webhooks it doesn't need to
      * call again.
      */
-    failedWebhookIds?: string[];
+    deliveredWebhookIds?: string[];
 }
 
 interface StringValueDataType {
@@ -90,7 +90,7 @@ export interface LightrailSQSEvent {
         time: StringValueDataType;
         datacontenttype: StringValueDataType;
         userid?: StringValueDataType; // todo <tim> not sure how this can be optional.
-        failedWebhookIds: StringValueDataType;
+        deliveredwebhookids: StringValueDataType;
     };
     MessageBody: any;
 }
@@ -111,9 +111,9 @@ export namespace LightrailEvent {
                 time: {DataType: "String", StringValue: event.time.toString()},
                 datacontenttype: {DataType: "String", StringValue: event.datacontenttype},
                 userid: {DataType: "String", StringValue: event.userid},
-                failedWebhookIds: {
+                deliveredwebhookids: {
                     DataType: "String",
-                    StringValue: JSON.stringify((event.failedWebhookIds ? event.failedWebhookIds : []))
+                    StringValue: JSON.stringify((event.deliveredWebhookIds ? event.deliveredWebhookIds : []))
                 }
             },
             MessageBody: JSON.stringify(event.data)
@@ -138,7 +138,7 @@ export function sqsRecordToLightrailEvent(record: awslambda.SQSRecord): Lightrai
         time: record.messageAttributes["time"].stringValue,
         userid: record.messageAttributes["userid"].stringValue,
         datacontenttype: "application/json",
-        failedWebhookIds: record.messageAttributes["failedWebhookIds"] ? JSON.parse(record.messageAttributes["failedWebhookIds"].stringValue) : [],
+        deliveredWebhookIds: record.messageAttributes["deliveredwebhookids"] ? JSON.parse(record.messageAttributes["deliveredwebhookids"].stringValue) : [],
         data: JSON.parse(record.body)
     };
 }
