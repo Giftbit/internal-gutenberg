@@ -122,6 +122,7 @@ export namespace LightrailEvent {
 
     export function toPublicFacingEvent(event: LightrailEvent) {
         return {
+            id: event.id,
             type: event.type,
             time: event.time,
             data: event.data

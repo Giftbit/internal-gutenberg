@@ -16,10 +16,11 @@ describe.only("eventProcessor", () => {
     const sinonSandbox = sinon.createSandbox();
 
     before(async function () {
+        const reset = resetDb();
         router.route(testUtils.authRoute);
         initializeSecretEncryptionKey(Promise.resolve("secret123") /* todo */);
         installAuthedRestRoutes(router);
-        await resetDb();
+        await reset;
     });
 
     it("can process event where user has no webhooks - FINISHED", async () => {
@@ -39,7 +40,8 @@ describe.only("eventProcessor", () => {
         };
 
         const res = await processLightrailEvent(event);
-        chai.assert.equal(res.status, "FINISHED");
+        chai.assert.isEmpty(res.failedWebhookIds);
+        chai.assert.isEmpty(res.deliveredWebhookIds);
     }).timeout(10000);
 
     it("can process event where user has 1 matching webhook - FINISHED", async () => {
@@ -77,8 +79,8 @@ describe.only("eventProcessor", () => {
         };
 
         const res = await processLightrailEvent(event);
-        chai.assert.equal(res.status, "FINISHED");
         chai.assert.sameMembers(res.deliveredWebhookIds, [webhook.id]);
+        chai.assert.isEmpty(res.failedWebhookIds);
         chai.assert.isNotNull(callbackStub.firstCall);
         chai.assert.isNull(callbackStub.secondCall);
     });
@@ -128,11 +130,10 @@ describe.only("eventProcessor", () => {
         };
 
         const res = await processLightrailEvent(event);
-        chai.assert.equal(res.status, "FINISHED");
+        chai.assert.isEmpty(res.failedWebhookIds);
         chai.assert.sameMembers(res.deliveredWebhookIds, [webhook.id, create2.body.id]);
         chai.assert.isNotNull(callbackStub.secondCall);
         chai.assert.isNull(callbackStub.thirdCall);
-        sinonSandbox.restore()
     });
 
     it("can process event where user has webhooks but non match - FINISHED", async () => {
@@ -170,7 +171,8 @@ describe.only("eventProcessor", () => {
         };
 
         const res = await processLightrailEvent(event);
-        chai.assert.equal(res.status, "FINISHED");
+        chai.assert.isEmpty(res.failedWebhookIds);
+        chai.assert.isEmpty(res.deliveredWebhookIds);
         chai.assert.isNull(callbackStub.firstCall);
     });
 
@@ -209,7 +211,8 @@ describe.only("eventProcessor", () => {
         };
 
         const res = await processLightrailEvent(event);
-        chai.assert.equal(res.status, "FINISHED");
+        chai.assert.isEmpty(res.failedWebhookIds);
+        chai.assert.isEmpty(res.deliveredWebhookIds);
         chai.assert.isNull(callbackStub.firstCall);
     });
 
@@ -227,7 +230,7 @@ describe.only("eventProcessor", () => {
 
         const callbackStub = sinonSandbox.stub(callbackUtils, "sendDataToCallback")
             .onFirstCall().resolves({
-                statusCode: 199,
+                statusCode: 302,
                 headers: null,
                 body: {}
             });
@@ -244,13 +247,12 @@ describe.only("eventProcessor", () => {
                 wings: 2,
                 seats: 120,
                 brand: "boeing"
-            },
-            deliveredWebhookIds: []
+            }
         };
 
         const res = await processLightrailEvent(event);
-        chai.assert.equal(res.status, "FAILED");
-        chai.assert.equal(res["deliveredWebhookIds"].length, 0);
+        chai.assert.sameMembers(res.failedWebhookIds, [webhook.id]);
+        chai.assert.isEmpty(res.deliveredWebhookIds);
         chai.assert.isNotNull(callbackStub.firstCall);
         chai.assert.isNull(callbackStub.secondCall);
         sinonSandbox.restore();
@@ -297,10 +299,9 @@ describe.only("eventProcessor", () => {
         };
 
         const res = await processLightrailEvent(event);
-        chai.assert.equal(res.status, "FAILED");
-        chai.assert.sameMembers(res["deliveredWebhookIds"], [webhook.id]);
+        chai.assert.sameMembers(res.failedWebhookIds, [create2.body.id]);
+        chai.assert.sameMembers(res.deliveredWebhookIds, [webhook.id]);
         chai.assert.isNotNull(callbackStub.firstCall);
-        console.log(JSON.stringify(callbackStub.firstCall.args));
         chai.assert.isNull(callbackStub.secondCall);
         sinonSandbox.restore();
     });

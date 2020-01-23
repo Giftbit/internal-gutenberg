@@ -12,19 +12,15 @@ export async function processSQSRecord(record: awslambda.SQSRecord): Promise<voi
     const event: LightrailEvent = sqsRecordToLightrailEvent(record);
     console.log("LOADED EVENT: " + JSON.stringify(event, null, 4));
     try {
-        const messageAction: ProcessesEventResult = await processLightrailEvent(event);
-        if (messageAction.status === "FINISHED") {
+        const result = await processLightrailEvent(event);
+        if (result.failedWebhookIds.length === 0) {
+            // finished
             await SqsUtils.deleteMessage(record);
         } else /* FAILED */ {
-            if (sameElements(messageAction.deliveredWebhookIds, event.deliveredWebhookIds)) {
+            if (sameElements(result.deliveredWebhookIds, event.deliveredWebhookIds)) {
                 await handleRetryForSameFailingWebhookIds(record);
             } else {
-                // This occurs when there are new failing webhook ids. This can occur on the first run
-                // because there are no failing webhook ids to begin with. Webhooks that have already
-                // been successfully called should not be called again. To prevent this a list of failed
-                // webhook ids must be stored on the SQS message. SQS messages cannot be updated. As such
-                // it must be queued as a new message.
-                event.deliveredWebhookIds = messageAction.deliveredWebhookIds;
+                event.deliveredWebhookIds = result.deliveredWebhookIds;
                 await SqsUtils.sendMessage(event, 30 /* the call to the webhook just failed. this 30sec delay is quite haphazard.*/);
                 await SqsUtils.deleteMessage(record);
             }
@@ -42,7 +38,7 @@ export async function processSQSRecord(record: awslambda.SQSRecord): Promise<voi
     }
 }
 
-export async function processLightrailEvent(event: LightrailEvent): Promise<ProcessesEventResult> {
+export async function processLightrailEvent(event: LightrailEvent): Promise<{ deliveredWebhookIds: string[], failedWebhookIds: string[] }> {
     if (!event.userid) {
         throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a userid. It cannot be processed. Deleting message from queue.`);
     }
@@ -74,7 +70,7 @@ export async function processLightrailEvent(event: LightrailEvent): Promise<Proc
         }
     }
 
-    return {status: failedWebhookIds.length > 0 ? "FAILED" : "FINISHED", deliveredWebhookIds: deliveredWebhookIds};
+    return {deliveredWebhookIds: deliveredWebhookIds, failedWebhookIds: failedWebhookIds};
 }
 
 async function handleRetryForSameFailingWebhookIds(record: awslambda.SQSRecord): Promise<any> {
