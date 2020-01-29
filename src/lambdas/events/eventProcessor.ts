@@ -20,8 +20,9 @@ export async function processSQSRecord(record: awslambda.SQSRecord): Promise<voi
             if (sameElements(result.deliveredWebhookIds, event.deliveredWebhookIds)) {
                 await handleRetryForSameFailingWebhookIds(record);
             } else {
+                // need to requeue as same message since need to update the list of
                 event.deliveredWebhookIds = result.deliveredWebhookIds;
-                await SqsUtils.sendMessage(event, 30 /* the call to the webhook just failed. this 30sec delay is quite haphazard.*/);
+                await SqsUtils.sendMessage(event, 30 /* the call to the webhook just failed so delay a little bit. 30 seconds is quite arbitrary.*/);
                 await SqsUtils.deleteMessage(record);
             }
         }
@@ -39,11 +40,11 @@ export async function processSQSRecord(record: awslambda.SQSRecord): Promise<voi
 }
 
 export async function processLightrailEvent(event: LightrailEvent): Promise<{ deliveredWebhookIds: string[], failedWebhookIds: string[] }> {
-    if (!event.userid) {
+    if (!event.userId) {
         throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a userid. It cannot be processed. Deleting message from queue.`);
     }
 
-    const webhooks: Webhook[] = await Webhook.list(event.userid);
+    const webhooks: Webhook[] = await Webhook.list(event.userId);
     log.info(`Retrieved ${JSON.stringify(webhooks)}`);
 
     const deliveredWebhookIds: string[] = event.deliveredWebhookIds ? event.deliveredWebhookIds : [];

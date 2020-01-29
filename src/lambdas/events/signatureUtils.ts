@@ -5,7 +5,7 @@ import * as cryptojs from "crypto-js";
  * @param secrets
  * @param payload
  */
-export function getSignatures(secrets: string[], payload: any) {
+export function getSignatures(secrets: string[], payload: object) {
     // payload should maybe be a JSON string?
-    return secrets.map(secret => cryptojs.SHA256(payload, secret)).join(",");
+    return secrets.map(secret => cryptojs.SHA256(JSON.stringify(payload), secret)).join(",");
 }

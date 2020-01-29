@@ -7,13 +7,13 @@ export namespace TestEvents {
         const date = new Date();
 
         return {
-            specversion: "1.0",
+            specVersion: "1.0",
             type: "gutenberg.test.airplane.created", // todo <tim> - try to pick something memorable.
             source: "/gutenberg/tests",
             id: id,
             time: date,
-            userid: defaultTestUser.auth.userId,
-            datacontenttype: "application/json",
+            userId: defaultTestUser.auth.userId,
+            dataContentType: "application/json",
             data: {
                 simpleProp: "1",
                 nested: {

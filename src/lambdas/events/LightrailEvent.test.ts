@@ -56,13 +56,13 @@ describe("LightrailEvent", () => {
 
         const lrEvent: LightrailEvent = sqsRecordToLightrailEvent(sqsRecord);
         chai.assert.deepEqual(lrEvent, {
-            "specversion": "1.0",
+            "specVersion": "1.0",
             "type": "plane.created",
             "source": "/gutenberg/tests",
             "id": "123",
             "time": "2020-01-01T00:00:00.000Z",
-            "userid": "user-123",
-            "datacontenttype": "application/json",
+            "userId": "user-123",
+            "dataContentType": "application/json",
             "deliveredWebhookIds": [],
             "data": {"plane": "boeing"}
         });
@@ -71,7 +71,7 @@ describe("LightrailEvent", () => {
             ...sqsRecord,
             messageAttributes: {
                 ...sqsRecord.messageAttributes,
-                deliveredWebhookIds: {
+                deliveredwebhookids: {
                     dataType: "String",
                     stringValue: JSON.stringify(["webhook1", "webhook2"]),
                     stringListValues: null,
@@ -81,13 +81,13 @@ describe("LightrailEvent", () => {
         };
         const lrEvent2: LightrailEvent = sqsRecordToLightrailEvent(sqsRecordWithDeliveredWebhookIds);
         chai.assert.deepEqual(lrEvent2, {
-            "specversion": "1.0",
+            "specVersion": "1.0",
             "type": "plane.created",
             "source": "/gutenberg/tests",
             "id": "123",
             "time": "2020-01-01T00:00:00.000Z",
-            "userid": "user-123",
-            "datacontenttype": "application/json",
+            "userId": "user-123",
+            "dataContentType": "application/json",
             "deliveredWebhookIds": ["webhook1", "webhook2"],
             "data": {"plane": "boeing"}
         });
@@ -97,13 +97,13 @@ describe("LightrailEvent", () => {
 
     it("toSQSSendMessageEvent", () => {
         const lightrailEvent: LightrailEvent = {
-            specversion: "1.0",
+            specVersion: "1.0",
             type: "gutenberg.test.airplane.created", // todo <tim> - try to pick something memorable.
             source: "/gutenberg/tests",
             id: generateId(),
             time: new Date(),
-            userid: defaultTestUser.auth.userId,
-            datacontenttype: "application/json",
+            userId: defaultTestUser.auth.userId,
+            dataContentType: "application/json",
             data: {
                 simpleProp: "1",
                 nested: {

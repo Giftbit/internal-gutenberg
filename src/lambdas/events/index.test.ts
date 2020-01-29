@@ -1,5 +1,5 @@
 import * as aws from "aws-sdk";
-import {clearQueue} from "../../utils/test/testUtils";
+import {clearQueue, pollSQS} from "../../utils/test/testUtils";
 import {sqs, SqsUtils} from "./sqsUtils";
 import {LightrailEvent} from "./LightrailEvent";
 import {TestEvents} from "../../utils/test/testEvents";
@@ -28,7 +28,7 @@ describe("events processor test", () => {
         const send = await SqsUtils.sendMessage(event);
         console.log("send: " + JSON.stringify(send, null, 4));
 
-        const get = await SqsUtils.getMessage();
+        const get = await pollSQS();
         console.log("get: " + JSON.stringify(get, null, 4));
     }).timeout(10000);
 });

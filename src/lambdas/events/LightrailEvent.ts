@@ -12,7 +12,7 @@ export interface LightrailEvent {
     /**
      * The version of the CloudEvents specification which the event uses.
      */
-    specversion: "1.0";
+    specVersion: "1.0";
 
     /**
      * Dot-separated namespace of the event type.
@@ -54,13 +54,13 @@ export interface LightrailEvent {
      * MUST consist of lower-case letters ('a' to 'z') or digits ('0' to '9') from
      * the ASCII character set.
      */
-    userid?: string;
+    userId?: string;
 
     /**
      * MIME type of the event data.  Currently we're only doing JSON payloads
      * but there may be use cases for other in the future.
      */
-    datacontenttype: "application/json";
+    dataContentType: "application/json";
 
     /**
      * The event body.  The shape is entirely dependent upon the type of the event.
@@ -75,6 +75,43 @@ export interface LightrailEvent {
      * call again.
      */
     deliveredWebhookIds?: string[];
+}
+
+
+export namespace LightrailEvent {
+    export function toSQSEvent(event: LightrailEvent): LightrailSQSEvent {
+        return {
+            MessageAttributes: {
+                type: {DataType: "String", StringValue: event.type},
+                source: {DataType: "String", StringValue: event.source},
+                id: {DataType: "String", StringValue: event.id},
+                time: {DataType: "String", StringValue: event.time.toString()},
+                datacontenttype: {DataType: "String", StringValue: event.dataContentType},
+                userid: {DataType: "String", StringValue: event.userId},
+                deliveredwebhookids: {
+                    DataType: "String",
+                    StringValue: JSON.stringify((event.deliveredWebhookIds ? event.deliveredWebhookIds : []))
+                }
+            },
+            MessageBody: JSON.stringify(event.data)
+        };
+    }
+
+    export function toPublicFacingEvent(event: LightrailEvent): LightrailPublicFacingEvent {
+        return {
+            id: event.id,
+            type: event.type,
+            time: event.time,
+            data: event.data
+        };
+    }
+}
+
+export interface LightrailPublicFacingEvent {
+    id: string;
+    type: string;
+    time: Date | string;
+    data: any;
 }
 
 interface StringValueDataType {
@@ -95,50 +132,15 @@ export interface LightrailSQSEvent {
     MessageBody: any;
 }
 
-export interface LightrailPublicFacingEvent {
-    type: string;
-    time: Date | string;
-    data: any;
-}
-
-export namespace LightrailEvent {
-    export function toSQSEvent(event: LightrailEvent): LightrailSQSEvent {
-        return {
-            MessageAttributes: {
-                type: {DataType: "String", StringValue: event.type},
-                source: {DataType: "String", StringValue: event.source},
-                id: {DataType: "String", StringValue: event.id},
-                time: {DataType: "String", StringValue: event.time.toString()},
-                datacontenttype: {DataType: "String", StringValue: event.datacontenttype},
-                userid: {DataType: "String", StringValue: event.userid},
-                deliveredwebhookids: {
-                    DataType: "String",
-                    StringValue: JSON.stringify((event.deliveredWebhookIds ? event.deliveredWebhookIds : []))
-                }
-            },
-            MessageBody: JSON.stringify(event.data)
-        };
-    }
-
-    export function toPublicFacingEvent(event: LightrailEvent) {
-        return {
-            id: event.id,
-            type: event.type,
-            time: event.time,
-            data: event.data
-        };
-    }
-}
-
 export function sqsRecordToLightrailEvent(record: awslambda.SQSRecord): LightrailEvent {
     return {
-        specversion: record.messageAttributes["specversion"].stringValue as "1.0",
+        specVersion: record.messageAttributes["specversion"].stringValue as "1.0",
         type: record.messageAttributes["type"].stringValue,
         source: record.messageAttributes["source"].stringValue,
         id: record.messageAttributes["id"].stringValue,
         time: record.messageAttributes["time"].stringValue,
-        userid: record.messageAttributes["userid"].stringValue,
-        datacontenttype: "application/json",
+        userId: record.messageAttributes["userid"].stringValue,
+        dataContentType: record.messageAttributes["datacontenttype"].stringValue as "application/json",
         deliveredWebhookIds: record.messageAttributes["deliveredwebhookids"] ? JSON.parse(record.messageAttributes["deliveredwebhookids"].stringValue) : [],
         data: JSON.parse(record.body)
     };

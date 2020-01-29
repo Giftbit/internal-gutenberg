@@ -6,6 +6,7 @@ import {TestUser} from "./TestUser";
 import {QUEUE_URL, sqs} from "../../lambdas/events/sqsUtils";
 import log = require("loglevel");
 import uuid = require("uuid/v4");
+import SQS = require("aws-sdk/clients/sqs");
 
 const rolesConfig = require("./rolesConfig.json");
 
@@ -60,4 +61,8 @@ export async function clearQueue(): Promise<void> {
     } catch (e) {
         console.log(e);
     }
+}
+
+export async function pollSQS(): Promise<SQS.Types.ReceiveMessageResult> {
+    return await sqs.receiveMessage({QueueUrl: QUEUE_URL}).promise();
 }
