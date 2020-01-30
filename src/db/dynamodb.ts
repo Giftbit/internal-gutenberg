@@ -49,7 +49,7 @@ export async function transactWriteItemsFixed(req: aws.DynamoDB.TransactWriteIte
 }
 
 export const objectSchema: dynameh.TableSchema = {
-    tableName: process.env["WEBHOOK_ENDPOINTS_TABLE"],
+    tableName: process.env["WEBHOOK_TABLE"],
     partitionKeyField: "pk",
     partitionKeyType: "string",
     sortKeyField: "sk",

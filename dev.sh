@@ -8,13 +8,16 @@
 STACK_NAME="dev-Gutenberg"
 
 # The name of an S3 bucket on your account to hold deployment artifacts.
-BUILD_ARTIFACT_BUCKET="mys3artifactbucket"
+BUILD_ARTIFACT_BUCKET="dev-lightrailgutenberg-tim-deploymentartifactbucket" # TODO - Where should this come from?
 
 # Parameter values for the sam template.  see: `aws cloudformation deploy help`
-PARAMETER_OVERRIDES=""
-#PARAMETER_OVERRIDES="--parameter-overrides"
-#PARAMETER_OVERRIDES+=" KeyOne=value"
-#PARAMETER_OVERRIDES+=" KeyTwo=value"
+PARAMETER_OVERRIDES="--parameter-overrides"
+PARAMETER_OVERRIDES+=" SecureConfigBucket=dev-lightrailsecureconfig-1q7bltwyiihpq-bucket-id162gq711cc"
+PARAMETER_OVERRIDES+=" SecureConfigKeyAssumeStorageScopeToken=assumeStorageScopeToken.json"
+PARAMETER_OVERRIDES+=" SecureConfigKeyJwt=authentication_badge_key.json"
+PARAMETER_OVERRIDES+=" SecureConfigKeyRoleDefinitions=RoleDefinitions.json"
+PARAMETER_OVERRIDES+=" SecureConfigKmsArn=arn:aws:kms:us-west-2:757264843183:key/5240d853-a89f-4510-82ba-386bf2b977dc"
+PARAMETER_OVERRIDES+=" Capacity=low"
 
 USAGE="usage: $0 <command name>\nvalid command names: build delete deploy invoke upload"
 

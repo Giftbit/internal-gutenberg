@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const webpack = require('webpack');
 const ZipPlugin = require('zip-webpack-plugin');
 
 module.exports = function (env) {
@@ -9,7 +10,6 @@ module.exports = function (env) {
 
     return functionsToBuild
         .map(fxn => ({
-            mode: 'production',
             context: path.resolve(__dirname),
             entry: path.join(lambdaFunctionDir, fxn, 'index.ts'),
             output: {
@@ -28,8 +28,7 @@ module.exports = function (env) {
                                     presets: [['@babel/env', {targets: {node: '8.10'}}]],
                                     plugins: [],
                                     compact: false,
-                                    babelrc: false,
-                                    cacheDirectory: true
+                                    babelrc: false
                                 }
                             }
                         ]
@@ -43,8 +42,7 @@ module.exports = function (env) {
                                     presets: [['@babel/env', {targets: {node: '8.10'}}]],
                                     plugins: [],
                                     compact: false,
-                                    babelrc: false,
-                                    cacheDirectory: true
+                                    babelrc: false
                                 }
                             },
                             'ts-loader'
@@ -61,11 +59,8 @@ module.exports = function (env) {
             resolve: {
                 extensions: ['.ts', '.tsx', '.js']
             },
-            optimization: {
-                minimize: false,
-                namedModules: true
-            },
             plugins: [
+                new webpack.DefinePlugin({"global.GENTLY": false}), // see https://github.com/felixge/node-formidable/issues/337 for why
                 new ZipPlugin({
                     path: path.join(__dirname, 'dist', fxn),
                     pathPrefix: '',
