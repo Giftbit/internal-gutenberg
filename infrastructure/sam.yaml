@@ -45,6 +45,8 @@ Resources:
       - Key: Service
         Value: Gutenberg
 
+  # todo - sqs queue
+
   RestFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -97,7 +99,7 @@ Resources:
                 !Sub "arn:aws:s3:::${SecureConfigBucket}/*"
       Tags:
         ShortName: RestFunction
-        Service: Rothschild
+        Service: Gutenberg
       Events:
         RestApi:
           Type: Api
