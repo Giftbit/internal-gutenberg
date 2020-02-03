@@ -10,6 +10,15 @@ Parameters:
     Description: Level of production capacity to use (high or low)
     AllowedPattern: (high|low)
     Default: low
+  LightrailDomain:
+    Type: String
+    Description: The domain of the Lightrail REST API
+    AllowedPattern: (\w+\.)+\w{3}
+  LightrailEventTopicArn:
+    Type: String
+    Description: Optional ARN of the SNS topic on Lightrail Events
+    AllowedPattern: (arn:aws:sns:[a-zA-Z_0-9\-]+:\d{12}:[a-zA-Z_0-9+=,.@\-_/]+)?
+    Default: ""
   SecureConfigBucket:
     Type: String
     Description: Name of the S3 bucket holding the JWT secure config
