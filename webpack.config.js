@@ -92,19 +92,7 @@ module.exports = function (env) {
                 'aws-sdk': 'aws-sdk',
                 'awslambda': 'awslambda',
                 'dynamodb-doc': 'dynamodb-doc',
-                'imagemagick': 'imagemagick',
-
-                // Knex drivers we won't use.
-                'mssql': 'mssql',
-                'mssql/lib/base': 'mssql/lib/base',
-                'mssql/package.json': 'mssql/package.json',
-                // 'mysql': 'mysql', // This is used by zongji which I would rather migrate to mysql2.
-                'oracle': 'oracle',
-                'oracledb': 'oracledb',
-                'pg': 'pg',
-                'pg-query-stream': 'pg-query-stream',   // used by pg
-                'sqlite3': 'sqlite3',
-                'tedious': 'tedious',   // used by mssql
+                'imagemagick': 'imagemagick'
             },
             node: {
                 // Allow these globals.
