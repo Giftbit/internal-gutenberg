@@ -10,6 +10,7 @@ module.exports = function (env) {
 
     return functionsToBuild
         .map(fxn => ({
+            mode: 'production',
             context: path.resolve(__dirname),
             entry: path.join(lambdaFunctionDir, fxn, 'index.ts'),
             output: {
@@ -25,10 +26,11 @@ module.exports = function (env) {
                             {
                                 loader: 'babel-loader',
                                 options: {
-                                    presets: [['@babel/env', {targets: {node: '8.10'}}]],
+                                    presets: [['@babel/env', {targets: {node: '10.17'}}]],
                                     plugins: [],
                                     compact: false,
-                                    babelrc: false
+                                    babelrc: false,
+                                    cacheDirectory: true
                                 }
                             }
                         ]
@@ -39,13 +41,15 @@ module.exports = function (env) {
                             {
                                 loader: 'babel-loader',
                                 options: {
-                                    presets: [['@babel/env', {targets: {node: '8.10'}}]],
+                                    presets: [['@babel/env', {targets: {node: '10.17'}}]],
                                     plugins: [],
                                     compact: false,
-                                    babelrc: false
+                                    babelrc: false,
+                                    cacheDirectory: true
                                 }
                             },
-                            'ts-loader'
+                            'ts-loader',
+                            'import-glob-loader'    // enables globs in import statements
                         ]
                     },
                     {
@@ -53,11 +57,26 @@ module.exports = function (env) {
                         use: [
                             'file-loader'
                         ]
+                    },
+                    {
+                        test: /\/V\d+__.*\.sql$/,
+                        use: [
+                            {
+                                loader: 'file-loader',
+                                options: {
+                                    name: 'schema/[name].[ext]'
+                                }
+                            }
+                        ]
                     }
                 ]
             },
             resolve: {
                 extensions: ['.ts', '.tsx', '.js']
+            },
+            optimization: {
+                minimize: false,
+                namedModules: true
             },
             plugins: [
                 new webpack.DefinePlugin({"global.GENTLY": false}), // see https://github.com/felixge/node-formidable/issues/337 for why
@@ -73,7 +92,19 @@ module.exports = function (env) {
                 'aws-sdk': 'aws-sdk',
                 'awslambda': 'awslambda',
                 'dynamodb-doc': 'dynamodb-doc',
-                'imagemagick': 'imagemagick'
+                'imagemagick': 'imagemagick',
+
+                // Knex drivers we won't use.
+                'mssql': 'mssql',
+                'mssql/lib/base': 'mssql/lib/base',
+                'mssql/package.json': 'mssql/package.json',
+                // 'mysql': 'mysql', // This is used by zongji which I would rather migrate to mysql2.
+                'oracle': 'oracle',
+                'oracledb': 'oracledb',
+                'pg': 'pg',
+                'pg-query-stream': 'pg-query-stream',   // used by pg
+                'sqlite3': 'sqlite3',
+                'tedious': 'tedious',   // used by mssql
             },
             node: {
                 // Allow these globals.
