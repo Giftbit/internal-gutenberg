@@ -48,8 +48,7 @@ module.exports = function (env) {
                                     cacheDirectory: true
                                 }
                             },
-                            'ts-loader',
-                            'import-glob-loader'    // enables globs in import statements
+                            'ts-loader'
                         ]
                     },
                     {
