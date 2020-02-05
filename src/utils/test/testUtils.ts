@@ -3,7 +3,7 @@ import * as cassava from "cassava";
 import {ParsedProxyResponse} from "./ParsedProxyResponse";
 import * as giftbitRoutes from "giftbit-cassava-routes";
 import {TestUser} from "./TestUser";
-import {QUEUE_URL, sqs} from "../../lambdas/events/sqsUtils";
+import {sqs} from "../../lambdas/events/sqsUtils";
 import log = require("loglevel");
 import uuid = require("uuid/v4");
 import SQS = require("aws-sdk/clients/sqs");
@@ -56,7 +56,7 @@ export const authRoute: cassava.routes.Route = new giftbitRoutes.jwtauth.JwtAuth
 
 export async function clearQueue(): Promise<void> {
     try {
-        const res = await sqs.purgeQueue({QueueUrl: QUEUE_URL}).promise();
+        const res = await sqs.purgeQueue({QueueUrl: process.env["EVENT_QUEUE"]}).promise();
         console.log("purged: " + JSON.stringify(res, null, 4));
     } catch (e) {
         console.log(e);
@@ -64,5 +64,5 @@ export async function clearQueue(): Promise<void> {
 }
 
 export async function pollSQS(): Promise<SQS.Types.ReceiveMessageResult> {
-    return await sqs.receiveMessage({QueueUrl: QUEUE_URL}).promise();
+    return await sqs.receiveMessage({QueueUrl: process.env["EVENT_QUEUE"]}).promise();
 }
