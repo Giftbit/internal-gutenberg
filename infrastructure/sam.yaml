@@ -61,12 +61,13 @@ Resources:
       MessageRetentionPeriod: 604800 # in seconds = 7 days (the max is 14 days)
       # RedrivePolicy: Json # Used for setting up deadletter queue.
       VisibilityTimeout: 60
+
   SnsSubscription:
     Type: AWS::SNS::Subscription
     Properties:
       Protocol: sqs
       Endpoint: !GetAtt EventQueue.Arn
-      Region: "${AWS::Region}"
+      Region: us-west-2
       TopicArn: !Ref LightrailEventTopicArn
 
   RestFunction:
