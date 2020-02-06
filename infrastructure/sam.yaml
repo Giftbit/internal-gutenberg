@@ -67,7 +67,6 @@ Resources:
     Properties:
       Protocol: sqs
       Endpoint: !GetAtt EventQueue.Arn
-      Region: us-west-2
       TopicArn: !Ref LightrailEventTopicArn
 
   RestFunction:
