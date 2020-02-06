@@ -3,8 +3,7 @@ import {LightrailEvent} from "./LightrailEvent";
 import {SQSRecord} from "aws-lambda";
 import SQS = require("aws-sdk/clients/sqs");
 
-export const QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/757264843183/Microservices-TimJ-BatchTaskQueue";
-const MAX_VISILIBILTY_TIMEOUT = 43200;
+const MAX_VISIBILITY_TIMEOUT = 43200;
 
 export const sqs = new aws.SQS({
     // apiVersion: "2012-08-10",
@@ -16,7 +15,7 @@ export namespace SqsUtils {
     export async function sendMessage(event: LightrailEvent, delaySeconds: number = 0): Promise<SQS.Types.SendMessageResult> {
         const params: aws.SQS.SendMessageRequest = {
             ...LightrailEvent.toSQSEvent(event),
-            QueueUrl: QUEUE_URL,
+            QueueUrl: process.env["EVENT_QUEUE"],
             DelaySeconds: delaySeconds
         };
 
@@ -25,7 +24,7 @@ export namespace SqsUtils {
 
     export async function deleteMessage(record: SQSRecord): Promise<any> {
         return await sqs.deleteMessage({
-            QueueUrl: QUEUE_URL,
+            QueueUrl: process.env["EVENT_QUEUE"],
             ReceiptHandle: record.receiptHandle
         });
     }
@@ -35,7 +34,7 @@ export namespace SqsUtils {
 
         const params: aws.SQS.ChangeMessageVisibilityRequest = {
             ReceiptHandle: record.receiptHandle,
-            QueueUrl: QUEUE_URL,
+            QueueUrl: process.env["EVENT_QUEUE"],
             VisibilityTimeout: getBackoffTimeout(receivedCount)
         };
         return await sqs.changeMessageVisibility(params)
@@ -47,6 +46,6 @@ export namespace SqsUtils {
  * Based on: https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
  */
 export function getBackoffTimeout(receivedCount: number): number {
-    const backoff = Math.min(MAX_VISILIBILTY_TIMEOUT, Math.pow(2, receivedCount) * 5 /* base backoff multiplier 5s - quite haphazard in choice */);
+    const backoff = Math.min(MAX_VISIBILITY_TIMEOUT, Math.pow(2, receivedCount) * 5 /* base backoff multiplier 5s - quite haphazard in choice */);
     return Math.floor(Math.random() * backoff); // Full jitter. Between 0 and the new calculated backoff.
 }

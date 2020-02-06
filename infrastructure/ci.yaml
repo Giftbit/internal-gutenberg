@@ -10,6 +10,11 @@ Parameters:
     Type: String
     Description: JSON string for the parameters of the project template.
     Default: "{}"
+  LightrailEventTopicArn:
+    Type: String
+    Description: Optional ARN of the SNS topic on Lightrail Events
+    AllowedPattern: (arn:aws:sns:[a-zA-Z_0-9\-]+:\d{12}:[a-zA-Z_0-9+=,.@\-_/]+)?
+    Default: ""
   GitHubOAuthToken:
     Type: String
     Description: GitHub oauth token.  This user must have admin access to the repo.
@@ -332,6 +337,15 @@ Resources:
           - sqs:RemovePermission
           - sqs:SetQueueAttributes
           Resource: !Sub "arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${ProjectName}-*"
+        - Effect: Allow
+          Action:
+          - sns:Subscribe
+          - sqs:CreateQueue
+          - sqs:DeleteQueue
+          - sqs:GetQueueAttributes
+          - sqs:RemovePermission
+          - sqs:SetQueueAttributes
+          Resource: !Ref LightrailEventTopicArn
         # ElasticsearchService
   #          - Effect: Allow
   #            Action:
