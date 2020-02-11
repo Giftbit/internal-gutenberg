@@ -61,16 +61,6 @@ Resources:
       MessageRetentionPeriod: 604800 # in seconds = 7 days (the max is 14 days)
       # RedrivePolicy: Json # Used for setting up deadletter queue.
       VisibilityTimeout: 60
-      Policies:
-      - Version: 2012-10-17
-        Statement:
-        - Effect: Allow
-          Principal: "*"
-          Action: sqs:SendMessage
-          Resource: !GetAtt EventQueue.Arn
-          Condition:
-            ArnEquals:
-              aws:SourceArn: !Ref LightrailEventTopicArn
 
   SnsSubscription:
     Type: AWS::SNS::Subscription
