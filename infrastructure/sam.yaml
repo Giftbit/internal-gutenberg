@@ -71,13 +71,10 @@ Resources:
       Policies:
       - Version: 2012-10-17
         Statement:
-        - # Give SNS topic permission to send messages to Queue
-          Effect: Allow
+        - Effect: Allow
           Principal: "*"
-          Action:
-          - sqs:SendMessage
-          Resource:
-          - !GetAtt EventQueue.Arn
+          Action: sqs:SendMessage
+          Resource: !GetAtt EventQueue.Arn
           Condition:
             ArnEquals:
               aws:SourceArn: !Ref LightrailEventTopicArn
