@@ -68,6 +68,20 @@ Resources:
       Protocol: sqs
       Endpoint: !GetAtt EventQueue.Arn
       TopicArn: !Ref LightrailEventTopicArn
+      Policies:
+      - Version: 2012-10-17
+        Statement:
+        - # Give SNS topic permission to send messages to Queue
+          Effect: Allow
+          Principal: "*"
+          Action:
+          - sqs:SendMessage
+          Resource:
+          - !GetAtt EventQueue.Arn
+          Condition:
+            ArnEquals:
+              aws:SourceArn: !Ref LightrailEventTopicArn
+
 
   RestFunction:
     Type: AWS::Serverless::Function
