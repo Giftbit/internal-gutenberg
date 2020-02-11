@@ -62,6 +62,24 @@ Resources:
       # RedrivePolicy: Json # Used for setting up deadletter queue.
       VisibilityTimeout: 60
 
+  SnsToSqsPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+      - !Ref EventQueue
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            AWS: '*'
+          Action:
+          - sqs:SendMessage
+          Resource: !GetAtt EventQueue.Arn
+          Condition:
+            StringEquals:
+              aws:SourceArn: !Ref LightrailEventTopicArn
+
   SnsSubscription:
     Type: AWS::SNS::Subscription
     Properties:

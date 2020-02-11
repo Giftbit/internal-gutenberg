@@ -340,11 +340,6 @@ Resources:
         - Effect: Allow
           Action:
           - sns:Subscribe
-          - sqs:CreateQueue
-          - sqs:DeleteQueue
-          - sqs:GetQueueAttributes
-          - sqs:RemovePermission
-          - sqs:SetQueueAttributes
           Resource: !Ref LightrailEventTopicArn
         # ElasticsearchService
   #          - Effect: Allow
