@@ -19,6 +19,10 @@ Parameters:
     Description: Optional ARN of the SNS topic on Lightrail Events
     AllowedPattern: (arn:aws:sns:[a-zA-Z_0-9\-]+:\d{12}:[a-zA-Z_0-9+=,.@\-_/]+)?
     Default: ""
+  LightrailEventEncryptionKeyArn:
+    Type: String
+    Description: Optional ARN of the KMS key encrypting Lightrail Events
+    AllowedPattern: (arn:aws:kms:[a-z0-9-]+:\d{12}:key/[a-z0-9-]+)?
   SecureConfigBucket:
     Type: String
     Description: Name of the S3 bucket holding the JWT secure config
@@ -195,6 +199,14 @@ Resources:
           - !Sub "arn:aws:s3:::${SecureConfigBucket}/RoleDefinitions.json"
           - !Sub "arn:aws:s3:::${SecureConfigBucket}/sentry_lambda_services.json"
           - !Sub "arn:aws:s3:::${SecureConfigBucket}/assumeStorageScopeToken.json"
+        - Effect: Allow
+          Action:
+          - kms:Decrypt
+          - kms:DescribeKey
+          - kms:Encrypt
+          - kms:GenerateDataKey*
+          Resource:
+          - !Ref LightrailEventEncryptionKeyArn
         - Effect: Allow
           Action:
           - kms:Decrypt
