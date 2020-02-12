@@ -7,7 +7,7 @@ import {decryptSecret, encryptSecret} from "../lambdas/rest/webhookSecretUtils";
 export interface Webhook {
     id: string;
     url: string;
-    secrets?: string[];
+    secrets?: { secret: string, createdDate: string }[];
     events: string[];
     active: boolean;
     description?: string;
@@ -20,7 +20,7 @@ interface DbWebhook extends Webhook {
     userId: string;
     pk: string;
     sk: string;
-    encryptedSecrets: string[];
+    encryptedSecrets: { encryptedSecret: string, createdDate: string }[];
 }
 
 const WEBHOOK_SORT_KEY = "Webhooks/";
@@ -48,7 +48,7 @@ export namespace Webhook {
     export async function create(userId: string, teamMemberId: string, webhook: Webhook): Promise<Webhook> {
         webhook.createdDate = new Date().toISOString();
         webhook.updatedDate = webhook.createdDate;
-        webhook.secrets = [webhookSecrets.generateSecret()];
+        webhook.secrets = [{secret: webhookSecrets.generateSecret(), createdDate: new Date().toISOString()}];
         webhook.createdBy = teamMemberId;
 
         const dbWebhookEndpoint: DbWebhook = await DbWebhook.toDbObject(userId, webhook);
@@ -111,7 +111,10 @@ namespace DbWebhook {
         delete webhook.sk;
 
         if (showSecret) {
-            webhook.secrets = await Promise.all(o.encryptedSecrets.map(s => decryptSecret(s)));
+            webhook.secrets = await Promise.all(o.encryptedSecrets.map(async (s) => ({
+                secret: await decryptSecret(s.encryptedSecret),
+                createdDate: s.createdDate
+            })));
         }
         delete webhook.encryptedSecrets;
 
@@ -124,8 +127,11 @@ namespace DbWebhook {
         }
         return {
             ...webhook,
-            encryptedSecrets: await Promise.all(webhook.secrets.map(s => encryptSecret(s))),
-            secrets: webhook.secrets.map(s => getSecretLastFour(s)),
+            encryptedSecrets: await Promise.all(webhook.secrets.map(async (s) => ({
+                encryptedSecret: await encryptSecret(s.secret),
+                createdDate: s.createdDate
+            }))),
+            secrets: webhook.secrets.map(s => ({secret: getSecretLastFour(s.secret), createdDate: s.createdDate})),
             userId: userId,
             pk: getPK(userId),
             sk: getSK(webhook.id)

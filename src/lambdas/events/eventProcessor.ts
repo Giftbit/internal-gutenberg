@@ -55,7 +55,7 @@ export async function processLightrailEvent(event: LightrailEvent): Promise<{ de
 
             log.info(`Webhook ${JSON.stringify(webhook)} matches event ${event.type}.`);
             const body = LightrailEvent.toPublicFacingEvent(event);
-            const signatures = getSignatures(webhook.secrets, body);
+            const signatures = getSignatures(webhook.secrets.map(s => s.secret), body);
             const call = await sendDataToCallback(signatures, webhook.url, body);
             log.info(`Sent event to callback. Callback returned ${JSON.stringify(call)}`);
 
