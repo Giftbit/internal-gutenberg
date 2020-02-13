@@ -126,7 +126,7 @@ export interface LightrailSQSEvent {
         id: StringValueDataType;
         time: StringValueDataType;
         datacontenttype: StringValueDataType;
-        userid?: StringValueDataType; // todo <tim> not sure how this can be optional.
+        userid: StringValueDataType;
         deliveredwebhookids: StringValueDataType;
     };
     MessageBody: any;
@@ -134,13 +134,13 @@ export interface LightrailSQSEvent {
 
 export function sqsRecordToLightrailEvent(record: awslambda.SQSRecord): LightrailEvent {
     return {
-        specVersion: record.messageAttributes["specversion"].stringValue as "1.0",
-        type: record.messageAttributes["type"].stringValue,
-        source: record.messageAttributes["source"].stringValue,
-        id: record.messageAttributes["id"].stringValue,
-        time: record.messageAttributes["time"].stringValue,
-        userId: record.messageAttributes["userid"].stringValue,
-        dataContentType: record.messageAttributes["datacontenttype"].stringValue as "application/json",
+        specVersion: record.messageAttributes["specversion"]?.stringValue as "1.0",
+        type: record.messageAttributes["type"]?.stringValue,
+        source: record.messageAttributes["source"]?.stringValue,
+        id: record.messageAttributes["id"]?.stringValue,
+        time: record.messageAttributes["time"]?.stringValue,
+        userId: record.messageAttributes["userid"]?.stringValue,
+        dataContentType: record.messageAttributes["datacontenttype"]?.stringValue as "application/json",
         deliveredWebhookIds: record.messageAttributes["deliveredwebhookids"] ? JSON.parse(record.messageAttributes["deliveredwebhookids"].stringValue) : [],
         data: JSON.parse(record.body)
     };

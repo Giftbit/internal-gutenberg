@@ -7,7 +7,7 @@ import {decryptSecret, encryptSecret} from "../lambdas/rest/webhookSecretUtils";
 export interface Webhook {
     id: string;
     url: string;
-    secrets?: string[];
+    secrets?: { secret: string, createdDate: string }[];
     events: string[];
     active: boolean;
     description?: string;
@@ -20,7 +20,7 @@ interface DbWebhook extends Webhook {
     userId: string;
     pk: string;
     sk: string;
-    encryptedSecrets: string[];
+    encryptedSecrets: { encryptedSecret: string, createdDate: string }[];
 }
 
 const WEBHOOK_SORT_KEY = "Webhooks/";
@@ -34,7 +34,7 @@ export namespace Webhook {
         const resp = await dynamodb.getItem(req).promise();
         const dbWebhookEndpoint = objectDynameh.responseUnwrapper.unwrapGetOutput(resp) as DbWebhook;
         if (!dbWebhookEndpoint) {
-            throw new giftbitRoutes.GiftbitRestError(404, `Value with id '${id}' not found.`, "WebhookNotFound");
+            throw new giftbitRoutes.GiftbitRestError(404, `Webhook with id '${id}' not found.`, "WebhookNotFound");
         }
         return DbWebhook.fromDbObject(dbWebhookEndpoint, showSecret);
     }
@@ -48,7 +48,7 @@ export namespace Webhook {
     export async function create(userId: string, teamMemberId: string, webhook: Webhook): Promise<Webhook> {
         webhook.createdDate = new Date().toISOString();
         webhook.updatedDate = webhook.createdDate;
-        webhook.secrets = [webhookSecrets.generateSecret()];
+        webhook.secrets = [{secret: webhookSecrets.generateSecret(), createdDate: new Date().toISOString()}];
         webhook.createdBy = teamMemberId;
 
         const dbWebhookEndpoint: DbWebhook = await DbWebhook.toDbObject(userId, webhook);
@@ -83,10 +83,10 @@ export namespace Webhook {
         for (const eventSubscription of eventSubscriptions) {
             if (eventSubscription === "*") {
                 return true;
-            } else if (eventSubscription.length > 1 && eventSubscription.slice(-2) === ".*") {
+            } else if (eventSubscription.length >= 2 && eventSubscription.slice(-2) === ".*") {
                 // subscribedEvent without the .* suffix must match the event until the .*
-                const suffixLessSubscription = eventSubscription.slice(0, eventSubscription.length - 2);
-                return suffixLessSubscription === eventType.slice(0, suffixLessSubscription.length);
+                const lengthToCheck = eventSubscription.length - 2;
+                return eventSubscription.slice(0, lengthToCheck) === eventType.slice(0, lengthToCheck);
             } else {
                 // have to totally match
                 if (eventSubscription === eventType) {
@@ -111,7 +111,10 @@ namespace DbWebhook {
         delete webhook.sk;
 
         if (showSecret) {
-            webhook.secrets = await Promise.all(o.encryptedSecrets.map(s => decryptSecret(s)));
+            webhook.secrets = await Promise.all(o.encryptedSecrets.map(async (s) => ({
+                secret: await decryptSecret(s.encryptedSecret),
+                createdDate: s.createdDate
+            })));
         }
         delete webhook.encryptedSecrets;
 
@@ -124,8 +127,11 @@ namespace DbWebhook {
         }
         return {
             ...webhook,
-            encryptedSecrets: await Promise.all(webhook.secrets.map(s => encryptSecret(s))),
-            secrets: webhook.secrets.map(s => getSecretLastFour(s)),
+            encryptedSecrets: await Promise.all(webhook.secrets.map(async (s) => ({
+                encryptedSecret: await encryptSecret(s.secret),
+                createdDate: s.createdDate
+            }))),
+            secrets: webhook.secrets.map(s => ({secret: getSecretLastFour(s.secret), createdDate: s.createdDate})),
             userId: userId,
             pk: getPK(userId),
             sk: getSK(webhook.id)
@@ -133,7 +139,7 @@ namespace DbWebhook {
     }
 
     export function getPK(userId: string): string {
-        return "Accounts/" + userId;
+        return "Users/" + userId;
     }
 
     export function getSK(webhookEndpointId: string): string {
@@ -144,28 +150,3 @@ namespace DbWebhook {
 export function getSecretLastFour(secret: string) {
     return "…" + Array.from(secret).slice(-4).join("");
 }
-
-// export function matchesEvent(type: string) {
-//     function getParentScope(scope: string): string {
-//         if (!scope || typeof scope !== "string") {
-//             return null;
-//         }
-//
-//         const lastSeparatorIx = scope.lastIndexOf(":");
-//         if (lastSeparatorIx === -1) {
-//             return null;
-//         }
-//
-//         return scope.substring(0, lastSeparatorIx);
-//     }
-//
-//     /**
-//      * Returns true if this badge contains the given scope or any parent of the scope.
-//      */
-//     for (; type; type = getParentScope(type)) {
-//         if (this.effectiveScopes.indexOf(type) !== -1) {
-//             return true;
-//         }
-//     }
-//     return false;
-// }

@@ -95,6 +95,25 @@ describe("LightrailEvent", () => {
         console.log(JSON.stringify(lrEvent2));
     });
 
+    it("parsing an partial event", () => {
+        const sqsRecord: awslambda.SQSRecord = {
+            messageId: "id",
+            receiptHandle: "handle",
+            body: JSON.stringify({
+                plane: "boeing"
+            }),
+            attributes: null,
+            messageAttributes: {},
+            md5OfBody: null,
+            eventSource: null,
+            eventSourceARN: null,
+            awsRegion: null
+        };
+
+        const lrEvent: LightrailEvent = sqsRecordToLightrailEvent(sqsRecord);
+        console.log(JSON.stringify(lrEvent, null, 4));
+    });
+
     it("toSQSSendMessageEvent", () => {
         const lightrailEvent: LightrailEvent = {
             specVersion: "1.0",

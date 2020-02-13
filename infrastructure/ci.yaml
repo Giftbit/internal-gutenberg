@@ -10,6 +10,11 @@ Parameters:
     Type: String
     Description: JSON string for the parameters of the project template.
     Default: "{}"
+  LightrailEventTopicArn:
+    Type: String
+    Description: Optional ARN of the SNS topic on Lightrail Events
+    AllowedPattern: (arn:aws:sns:[a-zA-Z_0-9\-]+:\d{12}:[a-zA-Z_0-9+=,.@\-_/]+)?
+    Default: ""
   GitHubOAuthToken:
     Type: String
     Description: GitHub oauth token.  This user must have admin access to the repo.
@@ -342,6 +347,17 @@ Resources:
           - secretsmanager:GetRandomPassword
           - secretsmanager:PutResourcePolicy
           - secretsmanager:TagResource
+          Resource: "*" # This action does not support resource-level permissions. Policies granting access must specify "*" in the resource element.
+          # Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-*"
+        - Effect: Allow
+          Action:
+          - sns:Subscribe
+          Resource: !Ref LightrailEventTopicArn
+        - Effect: Allow
+          Action:
+          - secretsmanager:CreateSecret
+          - secretsmanager:GetRandomPassword
+          - secretsmanager:PutResourcePolicy
           Resource: "*" # This action does not support resource-level permissions. Policies granting access must specify "*" in the resource element.
           # Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-*"
         # ElasticsearchService

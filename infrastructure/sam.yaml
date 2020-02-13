@@ -10,6 +10,19 @@ Parameters:
     Description: Level of production capacity to use (high or low)
     AllowedPattern: (high|low)
     Default: low
+  LightrailDomain:
+    Type: String
+    Description: The domain of the Lightrail REST API
+    AllowedPattern: (\w+\.)+\w{3}
+  LightrailEventTopicArn:
+    Type: String
+    Description: Optional ARN of the SNS topic on Lightrail Events
+    AllowedPattern: (arn:aws:sns:[a-zA-Z_0-9\-]+:\d{12}:[a-zA-Z_0-9+=,.@\-_/]+)?
+    Default: ""
+  LightrailEventEncryptionKeyArn:
+    Type: String
+    Description: Optional ARN of the KMS key encrypting Lightrail Events
+    AllowedPattern: (arn:aws:kms:[a-z0-9-]+:\d{12}:key/[a-z0-9-]+)?
   SecureConfigBucket:
     Type: String
     Description: Name of the S3 bucket holding the JWT secure config
@@ -46,6 +59,48 @@ Resources:
         Value: Gutenberg
 
   # todo - sqs queue
+  EventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 604800 # in seconds = 7 days (the max is 14 days)
+      # RedrivePolicy: Json # Used for setting up deadletter queue.
+      VisibilityTimeout: 60
+
+  SnsToSqsPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+      - !Ref EventQueue
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            AWS: '*'
+          Action:
+          - sqs:SendMessage
+          Resource: !GetAtt EventQueue.Arn
+          Condition:
+            StringEquals:
+              aws:SourceArn: !Ref LightrailEventTopicArn
+
+  SnsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      Endpoint: !GetAtt EventQueue.Arn
+      TopicArn: !Ref LightrailEventTopicArn
+
+  WebhookSecretEncryptionKey:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: 'The key used to encrypt webhook secrets at rest.'
+      GenerateSecretString:
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\'
+      Tags:
+      - Key: Service
+        Value: Gutenberg
 
   RestFunction:
     Type: AWS::Serverless::Function
@@ -106,3 +161,81 @@ Resources:
           Properties:
             Path: /{proxy+}
             Method: ANY
+
+  EventsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../dist/events/events.zip
+      Handler: index.handler
+      Runtime: nodejs10.x
+      MemorySize: 128
+      Timeout: 60 # seconds, 300 max. This should match the default message
+      Environment:
+        Variables:
+          EVENT_QUEUE: !Ref EventQueue
+          WEBHOOK_TABLE: !Ref WebhookTable
+          SECURE_CONFIG_BUCKET: !Ref SecureConfigBucket
+          SECURE_CONFIG_KEY_ASSUME_STORAGE_SCOPE_TOKEN: assumeStorageScopeToken.json
+          SECURE_CONFIG_KEY_JWT: authentication_badge_key.json
+          SECURE_CONFIG_KEY_ROLE_DEFINITIONS: RoleDefinitions.json
+          SECURE_CONFIG_KEY_SENTRY: sentry_lambda_services.json
+      Policies:
+      - Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:BatchGetItem
+          - dynamodb:DescribeTable
+          - dynamodb:DeleteItem
+          - dynamodb:GetItem
+          - dynamodb:PutItem
+          - dynamodb:Query
+          Resource:
+          - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WebhookTable}"
+          - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WebhookTable}/*"
+        - # Queue Access
+          Effect: Allow
+          Action:
+          - sqs:ChangeMessageVisibility
+          - sqs:DeleteMessage
+          - sqs:ReceiveMessage
+          - sqs:SendMessage
+          Resource:
+          - !GetAtt EventQueue.Arn
+        - Effect: Allow
+          Action:
+          - s3:GetObject
+          Resource:
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/authentication_badge_key.json"
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/RoleDefinitions.json"
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/sentry_lambda_services.json"
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/assumeStorageScopeToken.json"
+        - Effect: Allow
+          Action:
+          - kms:Decrypt
+          - kms:DescribeKey
+          - kms:Encrypt
+          - kms:GenerateDataKey*
+          Resource:
+          - !Ref LightrailEventEncryptionKeyArn
+        - Effect: Allow
+          Action:
+          - kms:Decrypt
+          - kms:DescribeKey
+          Resource:
+          - !Ref SecureConfigKmsArn
+          Condition:
+            StringLike:
+              "kms:ViaService":
+                !Sub "s3.${AWS::Region}.amazonaws.com"
+              "kms:EncryptionContext:aws:s3:arn":
+                !Sub "arn:aws:s3:::${SecureConfigBucket}/*"
+      Tags:
+        ShortName: RestFunction
+        Service: Gutenberg
+      Events:
+        MySQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt EventQueue.Arn
+            BatchSize: 10 # todo - this may need some tinkering.

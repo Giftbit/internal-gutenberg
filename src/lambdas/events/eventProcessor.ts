@@ -43,6 +43,9 @@ export async function processLightrailEvent(event: LightrailEvent): Promise<{ de
     if (!event.userId) {
         throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a userid. It cannot be processed. Deleting message from queue.`);
     }
+    if (!event.type) {
+        throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a type. It cannot be processed. Deleting message from queue.`);
+    }
 
     const webhooks: Webhook[] = await Webhook.list(event.userId);
     log.info(`Retrieved ${JSON.stringify(webhooks)}`);
@@ -55,7 +58,7 @@ export async function processLightrailEvent(event: LightrailEvent): Promise<{ de
 
             log.info(`Webhook ${JSON.stringify(webhook)} matches event ${event.type}.`);
             const body = LightrailEvent.toPublicFacingEvent(event);
-            const signatures = getSignatures(webhook.secrets, body);
+            const signatures = getSignatures(webhook.secrets.map(s => s.secret), body);
             const call = await sendDataToCallback(signatures, webhook.url, body);
             log.info(`Sent event to callback. Callback returned ${JSON.stringify(call)}`);
 
