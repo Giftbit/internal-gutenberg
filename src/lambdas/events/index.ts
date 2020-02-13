@@ -1,6 +1,7 @@
 import * as awslambda from "aws-lambda";
 import * as logPrefix from "loglevel-plugin-prefix";
 import {SqsUtils} from "./sqsUtils";
+import {processSQSRecord} from "./eventProcessor";
 import log = require("loglevel");
 
 // Wrapping console.log instead of binding (default behaviour for loglevel)
@@ -25,10 +26,10 @@ log.setLevel(process.env.LOG_LEVEL as any || log.levels.INFO);
  * Uses SQS as a Trigger. Simply passes any SQS Messages onto the SQS Processor.
  */
 async function handleSqsMessages(evt: awslambda.SQSEvent, ctx: awslambda.Context): Promise<any> {
-    console.log("Received: " + evt.Records.length + " records.");
+    log.info("Received: " + evt.Records.length + " records.");
     for (const message of evt.Records) {
         console.log(JSON.stringify(message, null, 4));
-        // await processSQSRecord(message);
+        await processSQSRecord(message);
         await SqsUtils.deleteMessage(message);
     }
 }

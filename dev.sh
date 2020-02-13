@@ -8,7 +8,7 @@
 STACK_NAME="dev-Gutenberg"
 
 # The name of an S3 bucket on your account to hold deployment artifacts.
-BUILD_ARTIFACT_BUCKET="dev-lightrailgutenberg-tim-deploymentartifactbucket" # TODO - Where should this come from?
+BUILD_ARTIFACT_BUCKET="dev-lightrailgutenberg-3-deploymentartifactbucket-1cgao81x1r53a"
 
 # Parameter values for the sam template.  see: `aws cloudformation deploy help`
 PARAMETER_OVERRIDES="--parameter-overrides"

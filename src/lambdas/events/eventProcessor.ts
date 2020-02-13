@@ -43,6 +43,9 @@ export async function processLightrailEvent(event: LightrailEvent): Promise<{ de
     if (!event.userId) {
         throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a userid. It cannot be processed. Deleting message from queue.`);
     }
+    if (!event.type) {
+        throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a type. It cannot be processed. Deleting message from queue.`);
+    }
 
     const webhooks: Webhook[] = await Webhook.list(event.userId);
     log.info(`Retrieved ${JSON.stringify(webhooks)}`);

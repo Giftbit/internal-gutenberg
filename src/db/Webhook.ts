@@ -139,7 +139,7 @@ namespace DbWebhook {
     }
 
     export function getPK(userId: string): string {
-        return "Accounts/" + userId;
+        return "Users/" + userId;
     }
 
     export function getSK(webhookEndpointId: string): string {

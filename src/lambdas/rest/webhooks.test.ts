@@ -11,7 +11,7 @@ import chaiExclude from "chai-exclude";
 
 chai.use(chaiExclude);
 
-describe.only("webhooks", () => {
+describe("webhooks", () => {
 
     const router = new cassava.Router();
 
