@@ -348,10 +348,6 @@ Resources:
           - secretsmanager:PutResourcePolicy
           - secretsmanager:TagResource
           Resource: "*" # This action does not support resource-level permissions. Policies granting access must specify "*" in the resource element.
-        - Effect: Allow
-          Action:
-          - sns:Subscribe
-          Resource: !Ref LightrailEventTopicArn
         # ElasticsearchService
   #          - Effect: Allow
   #            Action:
