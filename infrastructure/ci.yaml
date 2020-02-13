@@ -348,18 +348,10 @@ Resources:
           - secretsmanager:PutResourcePolicy
           - secretsmanager:TagResource
           Resource: "*" # This action does not support resource-level permissions. Policies granting access must specify "*" in the resource element.
-          # Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-*"
         - Effect: Allow
           Action:
           - sns:Subscribe
           Resource: !Ref LightrailEventTopicArn
-        - Effect: Allow
-          Action:
-          - secretsmanager:CreateSecret
-          - secretsmanager:GetRandomPassword
-          - secretsmanager:PutResourcePolicy
-          Resource: "*" # This action does not support resource-level permissions. Policies granting access must specify "*" in the resource element.
-          # Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-*"
         # ElasticsearchService
   #          - Effect: Allow
   #            Action:
