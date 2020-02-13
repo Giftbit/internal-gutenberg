@@ -77,7 +77,7 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireIds("teamMemberId");
 
             const webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true);
-            webhook.secrets.push(generateSecret());
+            webhook.secrets.push({secret: generateSecret(), createdDate: new Date().toISOString()});
 
             await Webhook.update(auth.userId, webhook);
             return {
@@ -94,11 +94,12 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireIds("teamMemberId");
 
             const webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true);
-            if (webhook.secrets.find(s => s === evt.pathParameters.secret)) {
-                webhook.secrets = webhook.secrets.filter(s => s !== evt.pathParameters.secret);
+            if (webhook.secrets.find(s => s.secret === evt.pathParameters.secret)) {
+                webhook.secrets = webhook.secrets.filter(s => s.secret !== evt.pathParameters.secret);
             } else {
-                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Webhook with id: ${webhook.id} already exists.`);
+                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Secret does not exist.`);
             }
+            await Webhook.update(auth.userId, webhook);
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
                 body: webhook

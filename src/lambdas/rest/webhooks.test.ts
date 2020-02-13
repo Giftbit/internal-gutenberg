@@ -2,7 +2,7 @@ import * as testUtils from "../../utils/test/testUtils";
 import {defaultTestUser, generateId, resetDb} from "../../utils/test/testUtils";
 import * as chai from "chai";
 import * as cassava from "cassava";
-import {Webhook} from "../../db/Webhook";
+import {getSecretLastFour, Webhook} from "../../db/Webhook";
 import {installAuthedRestRoutes} from "./installAuthedRestRoutes";
 import {ParsedProxyResponse} from "../../utils/test/ParsedProxyResponse";
 import {TestUser} from "../../utils/test/TestUser";
@@ -103,13 +103,20 @@ describe("webhooks", () => {
         chai.assert.equal(addSecret.statusCode, 201);
         chai.assert.deepEqualExcluding(addSecret.body, create.body, ["secrets", "updatedDate"]);
         chai.assert.equal(addSecret.body.secrets.length, 2);
-        chai.assert.equal(addSecret.body.secrets[0], secretOne);
+        chai.assert.deepEqual(addSecret.body.secrets[0], secretOne);
         chai.assert.notEqual(addSecret.body.secrets[1], secretOne);
         const secretTwo = addSecret.body.secrets[1];
 
-        const deleteSecret = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}/secrets/${secretOne}`, "DELETE");
+        const deleteSecret = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}/secrets/${secretOne.secret}`, "DELETE");
         chai.assert.equal(deleteSecret.statusCode, 200);
         chai.assert.deepEqualExcluding(deleteSecret.body, {...create.body, secrets: [secretTwo]}, ["updatedDate"]);
+
+        const get = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}?showSecrets=true`, "GET");
+        chai.assert.equal(get.statusCode, 200);
+        chai.assert.deepEqualExcluding(get.body, {
+            ...create.body,
+            secrets: [{...secretTwo, secret: getSecretLastFour(secretTwo.secret)}]
+        }, ["updatedDate"]);
     });
 
     it("can list webhooks", async () => {

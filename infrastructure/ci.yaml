@@ -340,12 +340,14 @@ Resources:
         - Effect: Allow
           Action:
           - sns:Subscribe
-          - sqs:CreateQueue
-          - sqs:DeleteQueue
-          - sqs:GetQueueAttributes
-          - sqs:RemovePermission
-          - sqs:SetQueueAttributes
           Resource: !Ref LightrailEventTopicArn
+        - Effect: Allow
+          Action:
+          - secretsmanager:CreateSecret
+          - secretsmanager:GetRandomPassword
+          - secretsmanager:PutResourcePolicy
+          Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*"
+          # Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-*"
         # ElasticsearchService
   #          - Effect: Allow
   #            Action:
