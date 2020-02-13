@@ -341,6 +341,13 @@ Resources:
           Action:
           - sns:Subscribe
           Resource: !Ref LightrailEventTopicArn
+        - Effect: Allow
+          Action:
+          - secretsmanager:CreateSecret
+          - secretsmanager:GetRandomPassword
+          - secretsmanager:PutResourcePolicy
+          Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*"
+          # Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-*"
         # ElasticsearchService
   #          - Effect: Allow
   #            Action:

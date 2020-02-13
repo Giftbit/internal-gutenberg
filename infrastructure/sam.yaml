@@ -91,6 +91,14 @@ Resources:
       Endpoint: !GetAtt EventQueue.Arn
       TopicArn: !Ref LightrailEventTopicArn
 
+  WebhookSecretEncryptionKey:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: 'The key used to encrypt webhook secrets at rest.'
+      GenerateSecretString:
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\'
+
   RestFunction:
     Type: AWS::Serverless::Function
     Properties:
