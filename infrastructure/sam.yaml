@@ -98,6 +98,9 @@ Resources:
       GenerateSecretString:
         PasswordLength: 16
         ExcludeCharacters: '"@/\'
+      Tags:
+      - Key: Service
+        Value: Gutenberg
 
   RestFunction:
     Type: AWS::Serverless::Function

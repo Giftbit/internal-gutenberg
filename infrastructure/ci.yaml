@@ -346,7 +346,7 @@ Resources:
           - secretsmanager:CreateSecret
           - secretsmanager:GetRandomPassword
           - secretsmanager:PutResourcePolicy
-          Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*"
+          Resource: "*" # This action does not support resource-level permissions. Policies granting access must specify "*" in the resource element.
           # Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-*"
         # ElasticsearchService
   #          - Effect: Allow
