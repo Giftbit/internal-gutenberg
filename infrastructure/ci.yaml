@@ -343,6 +343,10 @@ Resources:
           Resource: !Ref LightrailEventTopicArn
         - Effect: Allow
           Action:
+          - sns:SetSubscriptionAttributes
+          Resource: "*" # This action does not support resource-level permissions. Policies granting access must specify "*" in the resource element.
+        - Effect: Allow
+          Action:
           - secretsmanager:CreateSecret
           - secretsmanager:GetRandomPassword
           - secretsmanager:PutResourcePolicy

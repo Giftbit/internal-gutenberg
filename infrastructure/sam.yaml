@@ -90,6 +90,7 @@ Resources:
       Protocol: sqs
       Endpoint: !GetAtt EventQueue.Arn
       TopicArn: !Ref LightrailEventTopicArn
+      RawMessageDelivery: true # This correctly sets the message attributes in SQS message.
 
   WebhookSecretEncryptionKey:
     Type: AWS::SecretsManager::Secret

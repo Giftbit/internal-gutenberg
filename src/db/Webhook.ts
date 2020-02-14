@@ -39,6 +39,7 @@ const WEBHOOK_SORT_KEY = "Webhooks/";
  * Internal API - Operations that can be called from other lambdas within this project.
  */
 export namespace Webhook {
+
     export async function get(userId: string, id: string, showSecrets: boolean = false): Promise<Webhook> {
         const req = objectDynameh.requestBuilder.buildGetInput(DbWebhook.getPK(userId), DbWebhook.getSK(id));
         const resp = await dynamodb.getItem(req).promise();
@@ -94,11 +95,9 @@ export namespace Webhook {
             if (eventSubscription === "*") {
                 return true;
             } else if (eventSubscription.length >= 2 && eventSubscription.slice(-2) === ".*") {
-                // subscribedEvent without the .* suffix must match the event until the .*
                 const lengthToCheck = eventSubscription.length - 2;
                 return eventSubscription.slice(0, lengthToCheck) === eventType.slice(0, lengthToCheck);
             } else {
-                // have to totally match
                 if (eventSubscription === eventType) {
                     return true;
                 }
