@@ -3,6 +3,8 @@ import * as giftbitRoutes from "giftbit-cassava-routes";
 import * as logPrefix from "loglevel-plugin-prefix";
 import {installAuthedRestRoutes} from "./installAuthedRestRoutes";
 import {initializeSecretEncryptionKey} from "./webhookSecretUtils";
+import * as aws from "aws-sdk";
+import {GetSecretValueResponse} from "aws-sdk/clients/secretsmanager";
 import log = require("loglevel");
 
 // Wrapping console.log instead of binding (default behaviour for loglevel)
@@ -46,7 +48,9 @@ router.route(new giftbitRoutes.jwtauth.JwtAuthorizationRoute({
     errorLogFunction: log.error
 }));
 
-initializeSecretEncryptionKey(Promise.resolve("secret123") /* todo */);
+const secretsManager = new aws.SecretsManager();
+const secretEncryptionKey: Promise<GetSecretValueResponse> = secretsManager.getSecretValue({SecretId: process.env["SECRET_ENCRYPTION_KEY"]}).promise();
+initializeSecretEncryptionKey(Promise.resolve(secretEncryptionKey));
 
 installAuthedRestRoutes(router);
 

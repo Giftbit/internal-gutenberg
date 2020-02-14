@@ -1,16 +1,14 @@
 import {dynamodb, objectDynameh, queryAll} from "./dynamodb";
 import * as giftbitRoutes from "giftbit-cassava-routes";
 import * as cassava from "cassava";
-import * as webhookSecrets from "../lambdas/rest/webhookSecretUtils";
-import {decryptSecret, encryptSecret} from "../lambdas/rest/webhookSecretUtils";
+import {decryptSecret, encryptSecret, getNewWebhookSecret} from "../lambdas/rest/webhookSecretUtils";
 
 export interface Webhook {
     id: string;
     url: string;
-    secrets?: { secret: string, createdDate: string }[];
+    secrets?: WebhookSecret[];
     events: string[];
     active: boolean;
-    description?: string;
     createdDate: string;
     updatedDate: string;
     createdBy: string;
@@ -20,7 +18,19 @@ interface DbWebhook extends Webhook {
     userId: string;
     pk: string;
     sk: string;
-    encryptedSecrets: { encryptedSecret: string, createdDate: string }[];
+    encryptedSecrets: DbWebhookSecret[];
+}
+
+export interface WebhookSecret {
+    id: string,
+    secret: string,
+    createdDate: string
+}
+
+interface DbWebhookSecret {
+    id: string,
+    encryptedSecret: string,
+    createdDate: string
 }
 
 const WEBHOOK_SORT_KEY = "Webhooks/";
@@ -29,26 +39,27 @@ const WEBHOOK_SORT_KEY = "Webhooks/";
  * Internal API - Operations that can be called from other lambdas within this project.
  */
 export namespace Webhook {
-    export async function get(userId: string, id: string, showSecret: boolean = false): Promise<Webhook> {
+
+    export async function get(userId: string, id: string, showSecrets: boolean = false): Promise<Webhook> {
         const req = objectDynameh.requestBuilder.buildGetInput(DbWebhook.getPK(userId), DbWebhook.getSK(id));
         const resp = await dynamodb.getItem(req).promise();
         const dbWebhookEndpoint = objectDynameh.responseUnwrapper.unwrapGetOutput(resp) as DbWebhook;
         if (!dbWebhookEndpoint) {
             throw new giftbitRoutes.GiftbitRestError(404, `Webhook with id '${id}' not found.`, "WebhookNotFound");
         }
-        return DbWebhook.fromDbObject(dbWebhookEndpoint, showSecret);
+        return DbWebhook.fromDbObject(dbWebhookEndpoint, showSecrets);
     }
 
-    export async function list(userId: string, showSecret: boolean = false): Promise<Webhook[]> {
+    export async function list(userId: string): Promise<Webhook[]> {
         const req = objectDynameh.requestBuilder.buildQueryInput(DbWebhook.getPK(userId), "begins_with", WEBHOOK_SORT_KEY);
         const dbObjects = await queryAll(req);
-        return Promise.all(dbObjects.map(o => DbWebhook.fromDbObject(o, showSecret)));
+        return Promise.all(dbObjects.map(o => DbWebhook.fromDbObject(o, false)));
     }
 
     export async function create(userId: string, teamMemberId: string, webhook: Webhook): Promise<Webhook> {
         webhook.createdDate = new Date().toISOString();
         webhook.updatedDate = webhook.createdDate;
-        webhook.secrets = [{secret: webhookSecrets.generateSecret(), createdDate: new Date().toISOString()}];
+        webhook.secrets = [getNewWebhookSecret()];
         webhook.createdBy = teamMemberId;
 
         const dbWebhookEndpoint: DbWebhook = await DbWebhook.toDbObject(userId, webhook);
@@ -84,11 +95,9 @@ export namespace Webhook {
             if (eventSubscription === "*") {
                 return true;
             } else if (eventSubscription.length >= 2 && eventSubscription.slice(-2) === ".*") {
-                // subscribedEvent without the .* suffix must match the event until the .*
                 const lengthToCheck = eventSubscription.length - 2;
                 return eventSubscription.slice(0, lengthToCheck) === eventType.slice(0, lengthToCheck);
             } else {
-                // have to totally match
                 if (eventSubscription === eventType) {
                     return true;
                 }
@@ -104,19 +113,23 @@ namespace DbWebhook {
             return null;
         }
         const webhook = {
-            ...o
+            id: o.id,
+            url: o.url,
+            secrets: o.secrets,
+            events: o.events,
+            active: o.active,
+            createdDate: o.createdDate,
+            updatedDate: o.updatedDate,
+            createdBy: o.createdBy,
         };
-        delete webhook.userId;
-        delete webhook.pk;
-        delete webhook.sk;
 
         if (showSecret) {
             webhook.secrets = await Promise.all(o.encryptedSecrets.map(async (s) => ({
+                id: s.id,
                 secret: await decryptSecret(s.encryptedSecret),
                 createdDate: s.createdDate
             })));
         }
-        delete webhook.encryptedSecrets;
 
         return webhook as Webhook;
     }
@@ -128,10 +141,15 @@ namespace DbWebhook {
         return {
             ...webhook,
             encryptedSecrets: await Promise.all(webhook.secrets.map(async (s) => ({
+                id: s.id,
                 encryptedSecret: await encryptSecret(s.secret),
                 createdDate: s.createdDate
             }))),
-            secrets: webhook.secrets.map(s => ({secret: getSecretLastFour(s.secret), createdDate: s.createdDate})),
+            secrets: webhook.secrets.map(s => ({
+                id: s.id,
+                secret: getSecretLastFour(s.secret),
+                createdDate: s.createdDate
+            })),
             userId: userId,
             pk: getPK(userId),
             sk: getSK(webhook.id)

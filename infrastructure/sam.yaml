@@ -90,6 +90,7 @@ Resources:
       Protocol: sqs
       Endpoint: !GetAtt EventQueue.Arn
       TopicArn: !Ref LightrailEventTopicArn
+      RawMessageDelivery: true # This correctly sets the message attributes in SQS message.
 
   WebhookSecretEncryptionKey:
     Type: AWS::SecretsManager::Secret
@@ -113,6 +114,7 @@ Resources:
       Environment:
         Variables:
           WEBHOOK_TABLE: !Ref WebhookTable
+          SECRET_ENCRYPTION_KEY: !Ref WebhookSecretEncryptionKey
           SECURE_CONFIG_BUCKET: !Ref SecureConfigBucket
           SECURE_CONFIG_KEY_ASSUME_STORAGE_SCOPE_TOKEN: assumeStorageScopeToken.json
           SECURE_CONFIG_KEY_JWT: authentication_badge_key.json
@@ -152,6 +154,11 @@ Resources:
                 !Sub "s3.${AWS::Region}.amazonaws.com"
               "kms:EncryptionContext:aws:s3:arn":
                 !Sub "arn:aws:s3:::${SecureConfigBucket}/*"
+        - Effect: Allow
+          Action:
+          - secretsmanager:GetSecretValue
+          Resource:
+          - !Ref WebhookSecretEncryptionKey
       Tags:
         ShortName: RestFunction
         Service: Gutenberg
@@ -174,6 +181,7 @@ Resources:
         Variables:
           EVENT_QUEUE: !Ref EventQueue
           WEBHOOK_TABLE: !Ref WebhookTable
+          SECRET_ENCRYPTION_KEY: !Ref WebhookSecretEncryptionKey
           SECURE_CONFIG_BUCKET: !Ref SecureConfigBucket
           SECURE_CONFIG_KEY_ASSUME_STORAGE_SCOPE_TOKEN: assumeStorageScopeToken.json
           SECURE_CONFIG_KEY_JWT: authentication_badge_key.json
@@ -230,6 +238,11 @@ Resources:
                 !Sub "s3.${AWS::Region}.amazonaws.com"
               "kms:EncryptionContext:aws:s3:arn":
                 !Sub "arn:aws:s3:::${SecureConfigBucket}/*"
+        - Effect: Allow
+          Action:
+          - secretsmanager:GetSecretValue
+          Resource:
+          - !Ref WebhookSecretEncryptionKey
       Tags:
         ShortName: RestFunction
         Service: Gutenberg

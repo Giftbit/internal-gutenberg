@@ -17,7 +17,7 @@ describe("webhooks", () => {
 
     before(async function () {
         router.route(testUtils.authRoute);
-        initializeSecretEncryptionKey(Promise.resolve("secret123") /* todo */);
+        initializeSecretEncryptionKey(Promise.resolve({SecretString: "secret"}));
         installAuthedRestRoutes(router);
         await resetDb();
     });
@@ -156,11 +156,11 @@ describe("webhooks", () => {
                 active: true,
                 events: ["*"]
             };
-            const req1: Partial<Webhook> = {...webhook, description: "user one's webhook"};
+            const req1: Partial<Webhook> = {...webhook};
             const create1 = await user1Request<Webhook>(router, "/v2/webhooks", "POST", req1);
             chai.assert.equal(create1.statusCode, 201);
 
-            const req2: Partial<Webhook> = {...webhook, description: "user two's webhook"};
+            const req2: Partial<Webhook> = {...webhook};
             const create2 = await user2Request<Webhook>(router, "/v2/webhooks", "POST", req2);
             chai.assert.equal(create2.statusCode, 201);
 

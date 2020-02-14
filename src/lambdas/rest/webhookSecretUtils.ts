@@ -1,13 +1,24 @@
 import * as crypto from "crypto";
 import * as cryptojs from "crypto-js";
+import {GetSecretValueResponse} from "aws-sdk/clients/secretsmanager";
+import {WebhookSecret} from "../../db/Webhook";
+import uuid = require("uuid");
 
 const CODEBASE_ENCRYPTION_PEPPER = "yRPB2lp1dlOPCRn94N8FuCPFLb4hyNzrsA";
 const SECRET_LENGTH = 16;
 
-let encryptionKey: Promise<string>;
+let encryptionKey: Promise<GetSecretValueResponse>;
 
-export function initializeSecretEncryptionKey(secret: Promise<string>): void {
+export function initializeSecretEncryptionKey(secret: Promise<GetSecretValueResponse>): void {
     encryptionKey = secret;
+}
+
+export function getNewWebhookSecret(): WebhookSecret {
+    return {
+        id: uuid.v4(),
+        secret: generateSecret(),
+        createdDate: new Date().toISOString()
+    }
 }
 
 export function generateSecret() {
@@ -24,14 +35,14 @@ export async function encryptSecret(secret: string): Promise<string> {
     if (!encryptionKey) {
         throw new Error("Secret encryption key has not been initialized.");
     }
-    return cryptojs.AES.encrypt(addCodebasePepperToSecret(secret), await encryptionKey).toString();
+    return cryptojs.AES.encrypt(addCodebasePepperToSecret(secret), (await encryptionKey).SecretString).toString();
 }
 
-export async function decryptSecret(secretEncrypted: string): Promise<string> {
+export async function decryptSecret(encryptedSecret: string): Promise<string> {
     if (!encryptionKey) {
         throw new Error("Secret encryption key has not been initialized.");
     }
-    const bytes = cryptojs.AES.decrypt(secretEncrypted.toString(), await encryptionKey);
+    const bytes = cryptojs.AES.decrypt(encryptedSecret.toString(), (await encryptionKey).SecretString);
     const decryptedCodeWithCodebasePepper = bytes.toString(cryptojs.enc.Utf8);
     return removeCodebasePepperFromDecryptedSecret(decryptedCodeWithCodebasePepper);
 }
@@ -40,10 +51,10 @@ export async function decryptSecret(secretEncrypted: string): Promise<string> {
  * IMPORTANT: This is used so that if the AWS account is compromised
  * the secrets can't be decrypted without access to the codebase.
  */
-function addCodebasePepperToSecret(code: string): string {
-    return code + CODEBASE_ENCRYPTION_PEPPER;
+function addCodebasePepperToSecret(secret: string): string {
+    return secret + CODEBASE_ENCRYPTION_PEPPER;
 }
 
-function removeCodebasePepperFromDecryptedSecret(decryptedCode: string) {
-    return decryptedCode.replace(CODEBASE_ENCRYPTION_PEPPER, "");
+function removeCodebasePepperFromDecryptedSecret(decryptedSecret: string) {
+    return decryptedSecret.replace(CODEBASE_ENCRYPTION_PEPPER, "");
 }
