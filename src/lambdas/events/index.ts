@@ -2,6 +2,9 @@ import * as awslambda from "aws-lambda";
 import * as logPrefix from "loglevel-plugin-prefix";
 import {SqsUtils} from "./sqsUtils";
 import {processSQSRecord} from "./eventProcessor";
+import {GetSecretValueResponse} from "aws-sdk/clients/secretsmanager";
+import {initializeSecretEncryptionKey} from "../rest/webhookSecretUtils";
+import * as aws from "aws-sdk";
 import log = require("loglevel");
 
 // Wrapping console.log instead of binding (default behaviour for loglevel)
@@ -21,6 +24,10 @@ logPrefix.apply(log, {
 });
 
 log.setLevel(process.env.LOG_LEVEL as any || log.levels.INFO);
+
+const secretsManager = new aws.SecretsManager();
+const secretEncryptionKey: Promise<GetSecretValueResponse> = secretsManager.getSecretValue({SecretId: process.env["SECRET_ENCRYPTION_KEY"]}).promise();
+initializeSecretEncryptionKey(Promise.resolve(secretEncryptionKey));
 
 /**
  * Uses SQS as a Trigger. Simply passes any SQS Messages onto the SQS Processor.
