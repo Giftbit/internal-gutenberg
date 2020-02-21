@@ -1,6 +1,6 @@
 import * as awslambda from "aws-lambda";
 import * as logPrefix from "loglevel-plugin-prefix";
-import {SqsUtils} from "./sqsUtils";
+import * as giftbitRoutes from "giftbit-cassava-routes";
 import {processSQSRecord} from "./eventProcessor";
 import {GetSecretValueResponse} from "aws-sdk/clients/secretsmanager";
 import {initializeSecretEncryptionKey} from "../rest/webhookSecretUtils";
@@ -20,10 +20,11 @@ logPrefix.reg(log);
 logPrefix.apply(log, {
     format: (level, name, timestamp) => {
         return `[${level}]`;
-    }
+    },
 });
 
-log.setLevel(process.env.LOG_LEVEL as any || log.levels.INFO);
+// Set the log level when running in Lambda.
+log.setLevel(log.levels.INFO);
 
 const secretsManager = new aws.SecretsManager();
 const secretEncryptionKey: Promise<GetSecretValueResponse> = secretsManager.getSecretValue({SecretId: process.env["SECRET_ENCRYPTION_KEY"]}).promise();
@@ -35,27 +36,18 @@ initializeSecretEncryptionKey(Promise.resolve(secretEncryptionKey));
 async function handleSqsMessages(evt: awslambda.SQSEvent, ctx: awslambda.Context): Promise<any> {
     log.info("Received: " + evt.Records.length + " records.");
     for (const message of evt.Records) {
-        console.log(JSON.stringify(message, null, 4));
-        await processSQSRecord(message);
-        await SqsUtils.deleteMessage(message);
+        try {
+            console.log(JSON.stringify(message, null, 4));
+            await processSQSRecord(message);
+        } catch (error) {
+
+        }
     }
 }
 
-// exports.handler = async (event) => {
-//     //console.log('Received event:', JSON.stringify(event, null, 2));
-//     for (const {messageId, body} of event.Records) {
-//         console.log('SQS message %s: %j', messageId, body);
-//     }
-//     return `Successfully processed ${event.Records.length} messages.`;
-// };
-
 // Export the lambda handler with Sentry error logging supported.
-export const handler = handleSqsMessages;
-
-/* todo later
 export const handler = giftbitRoutes.sentry.wrapLambdaHandler({
-    handler: handleScheduleEvent,
+    handler: handleSqsMessages,
     logger: log.error,
     secureConfig: giftbitRoutes.secureConfig.fetchFromS3ByEnvVar<any>("SECURE_CONFIG_BUCKET", "SECURE_CONFIG_KEY_SENTRY")
 });
-*/

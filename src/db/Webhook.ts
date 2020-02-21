@@ -61,6 +61,7 @@ export namespace Webhook {
         webhook.updatedDate = webhook.createdDate;
         webhook.secrets = [getNewWebhookSecret()];
         webhook.createdBy = teamMemberId;
+        webhook.active = webhook.active != null ? webhook.active : true;
 
         const dbWebhookEndpoint: DbWebhook = await DbWebhook.toDbObject(userId, webhook);
         const req = objectDynameh.requestBuilder.buildPutInput(dbWebhookEndpoint);

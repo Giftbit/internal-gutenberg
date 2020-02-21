@@ -6,6 +6,7 @@ import {Webhook} from "../../db/Webhook";
 import {getSignatures} from "./signatureUtils";
 import {sendDataToCallback} from "./callbackUtils";
 import {sameElements} from "../../utils/arrayUtils";
+import {MetricsLogger} from "../../utils/metricsLogger";
 import log = require("loglevel");
 
 export async function processSQSRecord(record: awslambda.SQSRecord): Promise<void> {
@@ -20,7 +21,7 @@ export async function processSQSRecord(record: awslambda.SQSRecord): Promise<voi
             if (sameElements(result.deliveredWebhookIds, event.deliveredWebhookIds)) {
                 await handleRetryForSameFailingWebhookIds(record);
             } else {
-                // need to requeue as same message since need to update the list of
+                // Need to requeue as same message since need to update the list of deliveredWebhookIds.
                 event.deliveredWebhookIds = result.deliveredWebhookIds;
                 await SqsUtils.sendMessage(event, 30 /* the call to the webhook just failed so delay a little bit. 30 seconds is quite arbitrary.*/);
                 await SqsUtils.deleteMessage(record);
@@ -63,11 +64,12 @@ export async function processLightrailEvent(event: LightrailEvent): Promise<{ de
             log.info(`Sent event to callback. Callback returned ${JSON.stringify(call)}`);
 
             if (call.statusCode >= 200 && call.statusCode < 300) {
-                // todo metric success?
+                MetricsLogger.webhookCallSuccess(event.userId);
                 log.info(`Successfully called webhook ${JSON.stringify(webhook)} for event: ${JSON.stringify(event)}.`);
                 deliveredWebhookIds.push(webhook.id);
             } else {
                 // will need to retry this webhook
+                MetricsLogger.webhookCallFailure(event.userId);
                 log.info(`Failed calling webhook ${JSON.stringify(webhook)} for event: ${JSON.stringify(event)}.`);
                 failedWebhookIds.push(webhook.id);
             }

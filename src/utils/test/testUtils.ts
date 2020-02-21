@@ -10,7 +10,6 @@ import SQS = require("aws-sdk/clients/sqs");
 
 const rolesConfig = require("./rolesConfig.json");
 
-
 if (!process.env["TEST_ENV"]) {
     log.error("Env var TEST_ENV is undefined.  This is not a test environment!");
     throw new Error("Env var TEST_ENV is undefined.  This is not a test environment!");
@@ -19,8 +18,6 @@ if (!process.env["TEST_ENV"]) {
 export async function resetDb(): Promise<void> {
     log.trace("deleting existing tables");
     try {
-        // console.log(process.env["WEBHOOK_TABLE"]);
-        // console.log(JSON.stringify(objectDynameh, null, 4));
         await dynamodb.deleteTable(objectDynameh.requestBuilder.buildDeleteTableInput()).promise();
     } catch (err) {
         if (err.code !== "ResourceNotFoundException") {

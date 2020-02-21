@@ -2,6 +2,8 @@ import * as cassava from "cassava";
 import * as giftbitRoutes from "giftbit-cassava-routes";
 import {Webhook, WebhookSecret} from "../../db/Webhook";
 import {getNewWebhookSecret} from "./webhookSecretUtils";
+import * as jsonschema from "jsonschema";
+import {pick} from "../../utils/pick";
 import list = Webhook.list;
 
 export function installWebhookRest(router: cassava.Router): void {
@@ -25,8 +27,7 @@ export function installWebhookRest(router: cassava.Router): void {
             const auth: giftbitRoutes.jwtauth.AuthorizationBadge = evt.meta["auth"];
             auth.requireScopes("lightrailV2:webhooks:create");
             auth.requireIds("teamMemberId");
-
-            // todo - json schema validation
+            evt.validateBody(webhookCreateSchema);
 
             const webhook = await Webhook.create(auth.userId, auth.teamMemberId, evt.body);
             return {
@@ -55,9 +56,8 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireScopes("lightrailV2:webhooks:update");
             auth.requireIds("teamMemberId");
 
+            evt.validateBody(webhookCreateSchema);
             let webhookUpdates: Partial<Webhook> = evt.body;
-            // todo - json schema validation
-            // can't change secrets
 
             let webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true); // show secrets so that the update can properly save.
             const updatedWebhook = {...webhook, ...webhookUpdates};
@@ -76,12 +76,17 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireIds("teamMemberId");
 
             const webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true);
-            webhook.secrets.push(getNewWebhookSecret());
+            if (webhook.secrets.length === 3) {
+                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `A webhook cannot have more than 3 secrets.`);
+            }
+
+            const secret: WebhookSecret = getNewWebhookSecret();
+            webhook.secrets.push(secret);
 
             await Webhook.update(auth.userId, webhook);
             return {
                 statusCode: cassava.httpStatusCode.success.CREATED,
-                body: webhook
+                body: secret
             };
         });
 
@@ -129,3 +134,40 @@ export function installWebhookRest(router: cassava.Router): void {
             };
         });
 }
+
+export const webhookCreateSchema: jsonschema.Schema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+        id: {
+            type: "string",
+            maxLength: 64,
+            minLength: 1,
+            pattern: "^[ -~]*$"
+        },
+        url: {
+            type: "uri"
+        },
+        events: {
+            type: ["array"],
+            items: {
+                type: "string",
+                minLength: 1,
+                maxLength: 100
+            }
+        },
+        active: {
+            type: "boolean"
+        }
+    },
+    required: ["id", "url", "events"]
+};
+
+export const webhookUpdateSchema: jsonschema.Schema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+        ...pick(webhookCreateSchema.properties, "url", "events", "active"),
+    },
+    required: []
+};

@@ -36,8 +36,6 @@ router.route(new giftbitRoutes.MetricsRoute({
     logFunction: log.info
 }));
 
-// installUnauthedRestRoutes(router); todo - ping?
-
 const authConfigPromise = giftbitRoutes.secureConfig.fetchFromS3ByEnvVar<giftbitRoutes.secureConfig.AuthenticationConfig>("SECURE_CONFIG_BUCKET", "SECURE_CONFIG_KEY_JWT");
 router.route(new giftbitRoutes.jwtauth.JwtAuthorizationRoute({
     authConfigPromise: authConfigPromise,
