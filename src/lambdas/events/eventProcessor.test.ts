@@ -361,5 +361,40 @@ describe("eventProcessor", () => {
 
             });
         });
+
+        it.only("doesn't re-call already delivered webhookIds - call to second webhook again fails", async () => {
+            await resetDb();
+            const webhook: Partial<Webhook> = {
+                id: generateId(),
+                url: "https://bp0e3zz9g2.execute-api.us-west-2.amazonaws.com/default/TestGutenbergCallbackHandler",
+                events: ["*"],
+                active: true,
+            };
+            const create1 = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", webhook);
+            chai.assert.equal(create1.statusCode, 201);
+            const create2 = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", {
+                ...webhook,
+                id: generateId()
+            });
+            chai.assert.equal(create2.statusCode, 201);
+
+            const event: LightrailEvent = {
+                specVersion: "1.0",
+                type: "plane.created",
+                source: "/gutenberg/tests",
+                id: generateId(),
+                time: new Date(),
+                userId: defaultTestUser.userId,
+                dataContentType: "application/json",
+                data: {
+                    wings: 2,
+                    seats: 120,
+                    brand: "boeing"
+                },
+                deliveredWebhookIds: [webhook.id]
+            };
+
+            const res = await processLightrailEvent(event);
+        });
     });
 }).timeout(10000);

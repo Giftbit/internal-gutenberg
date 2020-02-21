@@ -36,12 +36,8 @@ initializeSecretEncryptionKey(Promise.resolve(secretEncryptionKey));
 async function handleSqsMessages(evt: awslambda.SQSEvent, ctx: awslambda.Context): Promise<any> {
     log.info("Received: " + evt.Records.length + " records.");
     for (const message of evt.Records) {
-        try {
-            console.log(JSON.stringify(message, null, 4));
-            await processSQSRecord(message);
-        } catch (error) {
-
-        }
+        log.info(JSON.stringify(message, null, 4));
+        await processSQSRecord(message);
     }
 }
 

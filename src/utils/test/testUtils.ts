@@ -51,7 +51,7 @@ export const authRoute: cassava.routes.Route = new giftbitRoutes.jwtauth.JwtAuth
     errorLogFunction: log.error
 });
 
-export async function clearQueue(): Promise<void> {
+export async function purgeQueue(): Promise<void> {
     try {
         const res = await sqs.purgeQueue({QueueUrl: process.env["EVENT_QUEUE"]}).promise();
         console.log("purged: " + JSON.stringify(res, null, 4));
@@ -60,6 +60,10 @@ export async function clearQueue(): Promise<void> {
     }
 }
 
-export async function pollSQS(): Promise<SQS.Types.ReceiveMessageResult> {
-    return await sqs.receiveMessage({QueueUrl: process.env["EVENT_QUEUE"]}).promise();
+export async function receiveMessage(): Promise<SQS.Types.ReceiveMessageResult> {
+    return await sqs.receiveMessage({
+        QueueUrl: process.env["EVENT_QUEUE"],
+        AttributeNames: ["All"],
+        MessageAttributeNames: ["All"]
+    }).promise();
 }

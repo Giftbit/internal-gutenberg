@@ -56,7 +56,7 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireScopes("lightrailV2:webhooks:update");
             auth.requireIds("teamMemberId");
 
-            evt.validateBody(webhookCreateSchema);
+            evt.validateBody(webhookUpdateSchema);
             let webhookUpdates: Partial<Webhook> = evt.body;
 
             let webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true); // show secrets so that the update can properly save.

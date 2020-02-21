@@ -99,7 +99,6 @@ describe("webhooks", function () {
         chai.assert.deepInclude(create.body, webhook);
 
         const update: Partial<Webhook> = {
-            ...webhook,
             events: ["updated:events"]
         };
         const patch = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}`, "PATCH", update);

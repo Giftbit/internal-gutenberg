@@ -50,10 +50,10 @@ export namespace Webhook {
         return DbWebhook.fromDbObject(dbWebhookEndpoint, showSecrets);
     }
 
-    export async function list(userId: string): Promise<Webhook[]> {
+    export async function list(userId: string, showSecrets: boolean = false): Promise<Webhook[]> {
         const req = objectDynameh.requestBuilder.buildQueryInput(DbWebhook.getPK(userId), "begins_with", WEBHOOK_SORT_KEY);
         const dbObjects = await queryAll(req);
-        return Promise.all(dbObjects.map(o => DbWebhook.fromDbObject(o, false)));
+        return Promise.all(dbObjects.map(o => DbWebhook.fromDbObject(o, showSecrets)));
     }
 
     export async function create(userId: string, teamMemberId: string, webhook: Webhook): Promise<Webhook> {

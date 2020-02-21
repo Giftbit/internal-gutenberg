@@ -1,4 +1,5 @@
 import * as awslambda from "aws-lambda";
+import {SendMessageRequest} from "aws-sdk/clients/sqs";
 
 /**
  * Events that happened in the Lightrail system.  Multiple microservices
@@ -79,7 +80,30 @@ export interface LightrailEvent {
 
 
 export namespace LightrailEvent {
-    export function toSQSEvent(event: LightrailEvent): LightrailSQSEvent {
+    export function toPublicFacingEvent(event: LightrailEvent): LightrailPublicFacingEvent {
+        return {
+            id: event.id,
+            type: event.type,
+            time: event.time,
+            data: event.data
+        };
+    }
+
+    export function parseFromSQSRecord(record: awslambda.SQSRecord): LightrailEvent {
+        return {
+            specVersion: record.messageAttributes["specversion"]?.stringValue as "1.0",
+            type: record.messageAttributes["type"]?.stringValue,
+            source: record.messageAttributes["source"]?.stringValue,
+            id: record.messageAttributes["id"]?.stringValue,
+            time: record.messageAttributes["time"]?.stringValue,
+            userId: record.messageAttributes["userid"]?.stringValue,
+            dataContentType: record.messageAttributes["datacontenttype"]?.stringValue as "application/json",
+            deliveredWebhookIds: record.messageAttributes["deliveredwebhookids"] ? JSON.parse(record.messageAttributes["deliveredwebhookids"].stringValue) : [],
+            data: JSON.parse(record.body)
+        };
+    }
+
+    export function toSQSSendMessageRequest(event: LightrailEvent, delaySeconds: number = 0): SendMessageRequest {
         return {
             MessageAttributes: {
                 type: {DataType: "String", StringValue: event.type},
@@ -93,16 +117,9 @@ export namespace LightrailEvent {
                     StringValue: JSON.stringify((event.deliveredWebhookIds ? event.deliveredWebhookIds : []))
                 }
             },
-            MessageBody: JSON.stringify(event.data)
-        };
-    }
-
-    export function toPublicFacingEvent(event: LightrailEvent): LightrailPublicFacingEvent {
-        return {
-            id: event.id,
-            type: event.type,
-            time: event.time,
-            data: event.data
+            MessageBody: JSON.stringify(event.data),
+            QueueUrl: process.env["EVENT_QUEUE"],
+            DelaySeconds: delaySeconds
         };
     }
 }
@@ -112,36 +129,4 @@ export interface LightrailPublicFacingEvent {
     type: string;
     time: Date | string;
     data: any;
-}
-
-interface StringValueDataType {
-    DataType: "String";
-    StringValue: string;
-}
-
-export interface LightrailSQSEvent {
-    MessageAttributes: {
-        type: StringValueDataType;
-        source: StringValueDataType;
-        id: StringValueDataType;
-        time: StringValueDataType;
-        datacontenttype: StringValueDataType;
-        userid: StringValueDataType;
-        deliveredwebhookids: StringValueDataType;
-    };
-    MessageBody: any;
-}
-
-export function sqsRecordToLightrailEvent(record: awslambda.SQSRecord): LightrailEvent {
-    return {
-        specVersion: record.messageAttributes["specversion"]?.stringValue as "1.0",
-        type: record.messageAttributes["type"]?.stringValue,
-        source: record.messageAttributes["source"]?.stringValue,
-        id: record.messageAttributes["id"]?.stringValue,
-        time: record.messageAttributes["time"]?.stringValue,
-        userId: record.messageAttributes["userid"]?.stringValue,
-        dataContentType: record.messageAttributes["datacontenttype"]?.stringValue as "application/json",
-        deliveredWebhookIds: record.messageAttributes["deliveredwebhookids"] ? JSON.parse(record.messageAttributes["deliveredwebhookids"].stringValue) : [],
-        data: JSON.parse(record.body)
-    };
 }

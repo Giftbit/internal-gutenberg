@@ -1,11 +1,11 @@
 import * as awslambda from "aws-lambda";
-import {LightrailEvent, sqsRecordToLightrailEvent} from "./LightrailEvent";
+import {LightrailEvent} from "./LightrailEvent";
 import * as chai from "chai";
 import {defaultTestUser, generateId} from "../../utils/test/testUtils";
 
 describe("LightrailEvent", () => {
 
-    it("sqsRecordToLightrailEvent", () => {
+    it("LightrailEvent.parseFromSQSRecord", () => {
         const date = new Date("2020");
         const sqsRecord: awslambda.SQSRecord = {
             messageId: "id",
@@ -54,7 +54,7 @@ describe("LightrailEvent", () => {
             awsRegion: null
         };
 
-        const lrEvent: LightrailEvent = sqsRecordToLightrailEvent(sqsRecord);
+        const lrEvent: LightrailEvent = LightrailEvent.parseFromSQSRecord(sqsRecord);
         chai.assert.deepEqual(lrEvent, {
             "specVersion": "1.0",
             "type": "plane.created",
@@ -79,7 +79,7 @@ describe("LightrailEvent", () => {
                 },
             }
         };
-        const lrEvent2: LightrailEvent = sqsRecordToLightrailEvent(sqsRecordWithDeliveredWebhookIds);
+        const lrEvent2: LightrailEvent = LightrailEvent.parseFromSQSRecord(sqsRecordWithDeliveredWebhookIds);
         chai.assert.deepEqual(lrEvent2, {
             "specVersion": "1.0",
             "type": "plane.created",
@@ -95,7 +95,7 @@ describe("LightrailEvent", () => {
         console.log(JSON.stringify(lrEvent2));
     });
 
-    it("parsing an partial event", () => {
+    it("parsing a partial event", () => {
         const sqsRecord: awslambda.SQSRecord = {
             messageId: "id",
             receiptHandle: "handle",
@@ -110,14 +110,14 @@ describe("LightrailEvent", () => {
             awsRegion: null
         };
 
-        const lrEvent: LightrailEvent = sqsRecordToLightrailEvent(sqsRecord);
+        const lrEvent: LightrailEvent = LightrailEvent.parseFromSQSRecord(sqsRecord);
         console.log(JSON.stringify(lrEvent, null, 4));
     });
 
     it("toSQSSendMessageEvent", () => {
         const lightrailEvent: LightrailEvent = {
             specVersion: "1.0",
-            type: "gutenberg.test.airplane.created", // todo <tim> - try to pick something memorable.
+            type: "plane.created",
             source: "/gutenberg/tests",
             id: generateId(),
             time: new Date(),
@@ -131,5 +131,6 @@ describe("LightrailEvent", () => {
                 createdDate: new Date().toISOString()
             }
         };
+
     })
 });

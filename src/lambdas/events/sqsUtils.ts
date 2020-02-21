@@ -1,28 +1,23 @@
 import * as aws from "aws-sdk";
-import {LightrailEvent} from "./LightrailEvent";
 import {SQSRecord} from "aws-lambda";
+import {SendMessageRequest} from "aws-sdk/clients/sqs";
 import SQS = require("aws-sdk/clients/sqs");
+import log = require("loglevel");
 
 const MAX_VISIBILITY_TIMEOUT = 43200;
 
 export const sqs = new aws.SQS({
-    // apiVersion: "2012-08-10",
-    // endpoint: process.env["TEST_ENV"] === "true" ? "http://localhost:8000" : undefined,
-    region: "us-west-2", // process.env["AWS_REGION"] //  AWS_REGION=us-west-2
+    region: "us-west-2"
 });
 
 export namespace SqsUtils {
-    export async function sendMessage(event: LightrailEvent, delaySeconds: number = 0): Promise<SQS.Types.SendMessageResult> {
-        const params: aws.SQS.SendMessageRequest = {
-            ...LightrailEvent.toSQSEvent(event),
-            QueueUrl: process.env["EVENT_QUEUE"],
-            DelaySeconds: delaySeconds
-        };
-
-        return await sqs.sendMessage(params).promise();
+    export async function sendMessage(message: SendMessageRequest): Promise<SQS.Types.SendMessageResult> {
+        log.info(`SQS sendMessage ${message.MessageAttributes["id"]}.`);
+        return await sqs.sendMessage(message).promise();
     }
 
     export async function deleteMessage(record: SQSRecord): Promise<any> {
+        log.info(`SQS delete message ${record.messageId}.`);
         return await sqs.deleteMessage({
             QueueUrl: process.env["EVENT_QUEUE"],
             ReceiptHandle: record.receiptHandle
@@ -37,6 +32,8 @@ export namespace SqsUtils {
             QueueUrl: process.env["EVENT_QUEUE"],
             VisibilityTimeout: getBackoffTimeout(receivedCount)
         };
+
+        log.info(`SQS changeMessageVisibility ${record.messageId}. Received count: ${receivedCount}. Visibility timeout: ${params.VisibilityTimeout}..`);
         return await sqs.changeMessageVisibility(params)
     }
 }
