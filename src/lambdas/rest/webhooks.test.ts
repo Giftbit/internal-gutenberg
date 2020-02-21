@@ -133,6 +133,11 @@ describe("webhooks", function () {
             chai.assert.deepEqual(get.body, initialSecret);
         });
 
+        it("can't delete a webhook's only secret", async () => {
+            const del = await testUtils.testAuthedRequest<{}>(router, `/v2/webhooks/${webhook.id}/secrets/${initialSecret.id}`, "DELETE");
+            chai.assert.equal(del.statusCode, 409);
+        });
+
         let secondSecret: WebhookSecret;
         it("can create a new secret", async () => {
             const create = await testUtils.testAuthedRequest<WebhookSecret>(router, `/v2/webhooks/${webhook.id}/secrets`, "POST", {});

@@ -123,6 +123,9 @@ export function installWebhookRest(router: cassava.Router): void {
 
             const secretId = evt.pathParameters.secretId;
             if (webhook.secrets.find(s => s.id === secretId)) {
+                if (webhook.secrets.length === 1) {
+                    throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `A webhook must have at least 1 secret.`);
+                }
                 webhook.secrets = webhook.secrets.filter(s => s.id !== secretId);
             } else {
                 throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Secret with id ${secretId} does not exist.`);

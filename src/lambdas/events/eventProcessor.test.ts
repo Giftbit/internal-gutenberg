@@ -25,7 +25,7 @@ describe("eventProcessor", () => {
     });
 
     describe("processLightrailEvent", () => {
-        it("can process event where user has no webhooks - FINISHED", async () => {
+        it("can process event where user has no webhooks", async () => {
             const event: LightrailEvent = {
                 specVersion: "1.0",
                 type: "plane.created",
@@ -44,9 +44,9 @@ describe("eventProcessor", () => {
             const res = await processLightrailEvent(event);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.isEmpty(res.deliveredWebhookIds);
-        }).timeout(10000);
+        });
 
-        it("can process event where user has 1 matching webhook - FINISHED", async () => {
+        it("can process event where user has 1 matching webhook - call succeeds", async () => {
             sinonSandbox.restore();
             await resetDb();
             const webhook: Partial<Webhook> = {
@@ -87,7 +87,7 @@ describe("eventProcessor", () => {
             chai.assert.isNull(callbackStub.secondCall);
         });
 
-        it("can process event where user has 2 matching webhooks - FINISHED", async () => {
+        it("can process event where user has 2 matching webhooks - both calls suceed", async () => {
             sinonSandbox.restore();
             await resetDb();
             const webhook: Partial<Webhook> = {
@@ -138,7 +138,7 @@ describe("eventProcessor", () => {
             chai.assert.isNull(callbackStub.thirdCall);
         });
 
-        it("can process event where user has webhooks but non match - FINISHED", async () => {
+        it("can process event where user has webhooks but non match - no calls to make", async () => {
             sinonSandbox.restore();
             await resetDb();
             const webhook: Partial<Webhook> = {
@@ -178,7 +178,7 @@ describe("eventProcessor", () => {
             chai.assert.isNull(callbackStub.firstCall);
         });
 
-        it("deactivated webhooks are skipped - FINISHED", async () => {
+        it("deactivated webhooks are skipped - no calls to make", async () => {
             sinonSandbox.restore();
             await resetDb();
             const webhook: Partial<Webhook> = {
@@ -218,7 +218,7 @@ describe("eventProcessor", () => {
             chai.assert.isNull(callbackStub.firstCall);
         });
 
-        it("returns FAILED status and empty deliverWebhookIds list on non-2XX response code", async () => {
+        it("one matching webhook but call returns non-2xx - returns 1 failed webhook id", async () => {
             sinonSandbox.restore();
             await resetDb();
             const webhook: Partial<Webhook> = {

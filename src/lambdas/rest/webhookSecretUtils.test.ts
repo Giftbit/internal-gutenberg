@@ -1,7 +1,7 @@
 import {decryptSecret, encryptSecret, generateSecret, initializeSecretEncryptionKey} from "./webhookSecretUtils";
 import * as chai from "chai";
 
-describe.only("webhookSecretUtils tests", () => {
+describe("webhookSecretUtils", () => {
 
     before(async function () {
         initializeSecretEncryptionKey(Promise.resolve({SecretString: "secret"}));
