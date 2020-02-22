@@ -1,50 +1,42 @@
 import * as awslambda from "aws-lambda";
 import {LightrailEvent} from "./LightrailEvent";
 import {DeleteMessageError} from "./errors/DeleteMessageError";
-import {SqsUtils} from "./sqsUtils";
 import {getSecretLastFour, Webhook} from "../../db/Webhook";
 import {getSignatures} from "./signatureUtils";
 import {sendDataToCallback} from "./callbackUtils";
 import {sameElements} from "../../utils/arrayUtils";
 import {MetricsLogger} from "../../utils/metricsLogger";
+import {ProcessEventResult} from "./EventProcessorResultEnum";
 import log = require("loglevel");
 
-export async function processSQSRecord(record: awslambda.SQSRecord): Promise<void> {
-    const event: LightrailEvent = LightrailEvent.parseFromSQSRecord(record);
+export async function processEvent(event: LightrailEvent, sentTimestamp: number): Promise<ProcessEventResult> {
     log.info(`Received event: ${JSON.stringify(event, null, 4)}.`);
-    try {
-        const result = await processLightrailEvent(event);
-        log.info(`Finished processing event ${event.id}. Result: ${JSON.stringify(result)}.`);
-        if (result.failedWebhookIds.length > 0) {
-            if (sameElements(result.deliveredWebhookIds, event.deliveredWebhookIds)) {
-                log.info("Same delivered webhookIds so handling retry for failures.");
-                await handleRetryForSameFailingWebhookIds(record);
+    const result = await callWebhooksForEvent(event);
+    log.info(`Finished processing event ${event.id}. Result: ${JSON.stringify(result)}.`);
+    if (result.failedWebhookIds.length > 0) {
+        if (sameElements(result.deliveredWebhookIds, event.deliveredWebhookIds)) {
+            log.info("Same delivered webhookIds so handling retry for failures.");
+            if (new Date().getTime() - sentTimestamp > 259200000 /* 3 days in ms = 3d * 24h * 60m * 60s * 1000ms */) {
+                // exceeded 3 days
+                return {action: "DELETE"};
             } else {
-                log.info("Need to requeue as same message since need to update the list of deliveredWebhookIds.");
-                event.deliveredWebhookIds = result.deliveredWebhookIds;
-                await SqsUtils.sendMessage(LightrailEvent.toSQSSendMessageRequest(event, 30 /* the call to the webhook just failed so delay a little bit. 30 seconds is quite arbitrary.*/));
-                await SqsUtils.deleteMessage(record);
+                return {action: "BACKOFF"};
             }
         } else {
-            log.info(`No failing webhookIds so deleting event ${event.id}.`);
-            await SqsUtils.deleteMessage(record);
+            log.info("Need to requeue as same message since need to update the list of deliveredWebhookIds.");
+            event.deliveredWebhookIds = result.deliveredWebhookIds;
+            return {
+                action: "REQUEUE",
+                newMessage: LightrailEvent.toSQSSendMessageRequest(event, 30 /* the call to the webhook just failed so delay a little bit. 30 seconds is quite arbitrary.*/)
+            }
         }
-    } catch (e) {
-        if (e instanceof DeleteMessageError) {
-            log.error(`DeleteMessageError thrown. Error: ${JSON.stringify(e)}.`);
-            await SqsUtils.deleteMessage(record);
-        } else {
-            log.error(`An unexpected error occurred while processing event: ${JSON.stringify(e)}`);
-            // An unexpected error occurred. Will backoff to a maximum of 12 hours.
-            // Won't delete the message off the queue after 3 days because this represents
-            // an unexpected failure on our side. The message will be retried for up to 14 days
-            // which is the maximum length a message can be in an sqs queue.
-            await SqsUtils.backoff(record);
-        }
+    } else {
+        log.info(`No failing webhookIds so deleting event ${event.id}.`);
+        return {action: "DELETE"};
     }
 }
 
-export async function processLightrailEvent(event: LightrailEvent): Promise<{ deliveredWebhookIds: string[], failedWebhookIds: string[] }> {
+export async function callWebhooksForEvent(event: LightrailEvent): Promise<{ deliveredWebhookIds: string[], failedWebhookIds: string[] }> {
     if (!event.userId) {
         throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a userid. It cannot be processed. Deleting message from queue.`);
     }
@@ -85,10 +77,5 @@ export async function processLightrailEvent(event: LightrailEvent): Promise<{ de
 }
 
 async function handleRetryForSameFailingWebhookIds(record: awslambda.SQSRecord): Promise<any> {
-    if (new Date().getTime() - parseInt(record.attributes.SentTimestamp) > 259200000 /* 3 days in ms = 3d * 24h * 60m * 60s * 1000ms */) {
-        // exceeds 3 days. delete
-        return await SqsUtils.deleteMessage(record);
-    } else {
-        return await SqsUtils.backoff(record);
-    }
+
 }

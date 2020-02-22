@@ -8,7 +8,7 @@ import * as callbackUtils from "./callbackUtils";
 import {installAuthedRestRoutes} from "../rest/installAuthedRestRoutes";
 import * as sinon from "sinon";
 import {LightrailEvent} from "./LightrailEvent";
-import {processLightrailEvent, processSQSRecord} from "./eventProcessor";
+import {callWebhooksForEvent} from "./eventProcessor";
 import * as awslambda from "aws-lambda";
 
 describe("eventProcessor", () => {
@@ -41,7 +41,7 @@ describe("eventProcessor", () => {
                 }
             };
 
-            const res = await processLightrailEvent(event);
+            const res = await callWebhooksForEvent(event);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.isEmpty(res.deliveredWebhookIds);
         });
@@ -80,7 +80,7 @@ describe("eventProcessor", () => {
                 }
             };
 
-            const res = await processLightrailEvent(event);
+            const res = await callWebhooksForEvent(event);
             chai.assert.sameMembers(res.deliveredWebhookIds, [webhook.id]);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.isNotNull(callbackStub.firstCall);
@@ -131,7 +131,7 @@ describe("eventProcessor", () => {
                 }
             };
 
-            const res = await processLightrailEvent(event);
+            const res = await callWebhooksForEvent(event);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.sameMembers(res.deliveredWebhookIds, [webhook.id, create2.body.id]);
             chai.assert.isNotNull(callbackStub.secondCall);
@@ -172,7 +172,7 @@ describe("eventProcessor", () => {
                 }
             };
 
-            const res = await processLightrailEvent(event);
+            const res = await callWebhooksForEvent(event);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.isEmpty(res.deliveredWebhookIds);
             chai.assert.isNull(callbackStub.firstCall);
@@ -212,7 +212,7 @@ describe("eventProcessor", () => {
                 }
             };
 
-            const res = await processLightrailEvent(event);
+            const res = await callWebhooksForEvent(event);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.isEmpty(res.deliveredWebhookIds);
             chai.assert.isNull(callbackStub.firstCall);
@@ -252,7 +252,7 @@ describe("eventProcessor", () => {
                 }
             };
 
-            const res = await processLightrailEvent(event);
+            const res = await callWebhooksForEvent(event);
             chai.assert.sameMembers(res.failedWebhookIds, [webhook.id]);
             chai.assert.isEmpty(res.deliveredWebhookIds);
             chai.assert.isNotNull(callbackStub.firstCall);
@@ -300,7 +300,7 @@ describe("eventProcessor", () => {
                 deliveredWebhookIds: [webhook.id]
             };
 
-            const res = await processLightrailEvent(event);
+            const res = await callWebhooksForEvent(event);
             chai.assert.sameMembers(res.failedWebhookIds, [create2.body.id]);
             chai.assert.sameMembers(res.deliveredWebhookIds, [webhook.id]);
             chai.assert.isNotNull(callbackStub.firstCall);
@@ -357,12 +357,12 @@ describe("eventProcessor", () => {
 
         describe("processSQSRecord", () => {
             it("can process sqs record that doesn't have any failing webhook calls", async () => {
-                const result = await processSQSRecord(sqsRecord); // todo
+                // const result = await processEvent(sqsRecord); // todo
 
             });
         });
 
-        it.only("doesn't re-call already delivered webhookIds - call to second webhook again fails", async () => {
+        it("doesn't re-call already delivered webhookIds - call to second webhook again fails", async () => {
             await resetDb();
             const webhook: Partial<Webhook> = {
                 id: generateId(),
@@ -394,7 +394,7 @@ describe("eventProcessor", () => {
                 deliveredWebhookIds: [webhook.id]
             };
 
-            const res = await processLightrailEvent(event);
+            const res = await callWebhooksForEvent(event);
         });
     });
 }).timeout(10000);

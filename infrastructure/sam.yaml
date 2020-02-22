@@ -251,4 +251,4 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt EventQueue.Arn
-            BatchSize: 10 # todo - this may need some tinkering.
+            BatchSize: 10
