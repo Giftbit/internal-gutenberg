@@ -176,7 +176,7 @@ Resources:
       Handler: index.handler
       Runtime: nodejs10.x
       MemorySize: 128
-      Timeout: 60 # seconds, 300 max. This should match the default message
+      Timeout: 60 # seconds, 300 max. This should match the queue's default message visibility.
       Environment:
         Variables:
           EVENT_QUEUE: !Ref EventQueue

@@ -33,8 +33,8 @@ export namespace SqsUtils {
             VisibilityTimeout: getBackoffTimeout(receivedCount)
         };
 
-        log.info(`SQS changeMessageVisibility ${record.messageId}. Received count: ${receivedCount}. Visibility timeout: ${params.VisibilityTimeout}..`);
-        return await sqs.changeMessageVisibility(params)
+        log.info(`SQS changeMessageVisibility ${record.messageId}. Received count: ${receivedCount}. Visibility timeout: ${params.VisibilityTimeout}.`);
+        return await sqs.changeMessageVisibility(params);
     }
 }
 

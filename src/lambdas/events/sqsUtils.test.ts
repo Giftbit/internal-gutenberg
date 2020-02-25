@@ -1,5 +1,4 @@
 import {getBackoffTimeout, SqsUtils} from "./sqsUtils";
-import * as chai from "chai";
 import {LightrailEvent} from "./LightrailEvent";
 import {generateId, purgeQueue, receiveMessage} from "../../utils/test/testUtils";
 
