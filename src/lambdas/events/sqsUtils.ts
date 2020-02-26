@@ -1,6 +1,5 @@
 import * as aws from "aws-sdk";
-import {SQSRecord} from "aws-lambda";
-import {SendMessageRequest} from "aws-sdk/clients/sqs";
+import {Message, SendMessageRequest} from "aws-sdk/clients/sqs";
 import SQS = require("aws-sdk/clients/sqs");
 import log = require("loglevel");
 
@@ -16,25 +15,35 @@ export namespace SqsUtils {
         return await sqs.sendMessage(message).promise();
     }
 
-    export async function deleteMessage(record: SQSRecord): Promise<any> {
-        log.info(`SQS delete message ${record.messageId}.`);
+    export async function deleteMessage(message: Message): Promise<any> {
+        log.info(`SQS delete message ${message.MessageId}.`);
         return await sqs.deleteMessage({
             QueueUrl: process.env["EVENT_QUEUE"],
-            ReceiptHandle: record.receiptHandle
+            ReceiptHandle: message.ReceiptHandle
         });
     }
 
-    export async function backoff(record: SQSRecord): Promise<{}> {
-        const receivedCount = parseInt(record.attributes.ApproximateReceiveCount);
+    export async function backoff(message: Message): Promise<{}> {
+        const receivedCount = parseInt(message.Attributes.ApproximateReceiveCount);
 
         const params: aws.SQS.ChangeMessageVisibilityRequest = {
-            ReceiptHandle: record.receiptHandle,
+            ReceiptHandle: message.ReceiptHandle,
             QueueUrl: process.env["EVENT_QUEUE"],
             VisibilityTimeout: getBackoffTimeout(receivedCount)
         };
 
-        log.info(`SQS changeMessageVisibility ${record.messageId}. Received count: ${receivedCount}. Visibility timeout: ${params.VisibilityTimeout}.`);
+        log.info(`SQS changeMessageVisibility ${message.MessageId}. Received count: ${receivedCount}. Visibility timeout: ${params.VisibilityTimeout}.`);
         return await sqs.changeMessageVisibility(params);
+    }
+
+    export async function receiveMessage(waitTimeSeconds: number = 0): Promise<SQS.Types.ReceiveMessageResult> {
+        return await sqs.receiveMessage({
+            QueueUrl: process.env["EVENT_QUEUE"],
+            AttributeNames: ["All"],
+            MessageAttributeNames: ["All"],
+            WaitTimeSeconds: waitTimeSeconds,
+            MaxNumberOfMessages: 10
+        }).promise();
     }
 }
 

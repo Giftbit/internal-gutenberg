@@ -72,6 +72,21 @@ export function installWebhookRest(router: cassava.Router): void {
             };
         });
 
+    router.route("/v2/webhooks/{id}")
+        .method("DELETE")
+        .handler(async evt => {
+            const auth: giftbitRoutes.jwtauth.AuthorizationBadge = evt.meta["auth"];
+            auth.requireScopes("lightrailV2:webhooks:update");
+            auth.requireIds("teamMemberId");
+
+            let webhook = await Webhook.get(auth.userId, evt.pathParameters.id);
+            await Webhook.del(auth.userId, webhook);
+            return {
+                statusCode: cassava.httpStatusCode.success.OK,
+                body: {}
+            };
+        });
+
     router.route("/v2/webhooks/{id}/secrets")
         .method("POST")
         .handler(async evt => {

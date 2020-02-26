@@ -91,6 +91,16 @@ export namespace Webhook {
         return objectDynameh.responseUnwrapper.unwrapGetOutput(resp);
     }
 
+    export async function del(userId: string, webhook: Webhook): Promise<any> {
+        webhook.updatedDate = new Date().toISOString();
+
+        const dbWebhookEndpoint: Webhook = await DbWebhook.toDbObject(userId, webhook);
+        const req = objectDynameh.requestBuilder.buildDeleteInput(dbWebhookEndpoint);
+        const resp = await dynamodb.deleteItem(req).promise();
+
+        return objectDynameh.responseUnwrapper.unwrapGetOutput(resp);
+    }
+
     export function matchesEvent(eventSubscriptions: string[], eventType: string): boolean {
         for (const eventSubscription of eventSubscriptions) {
             if (eventSubscription === "*") {

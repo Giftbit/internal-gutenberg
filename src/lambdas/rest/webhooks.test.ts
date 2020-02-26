@@ -110,6 +110,25 @@ describe("webhooks", function () {
         chai.assert.deepInclude(get.body, patch.body);
     });
 
+    it.only("can delete a webhook", async () => {
+        const webhook: Partial<Webhook> = {
+            id: generateId(),
+            url: "https://www.example.com/hooks",
+            events: ["*"],
+            active: true,
+        };
+        const create = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", webhook);
+        chai.assert.equal(create.statusCode, 201);
+        chai.assert.deepInclude(create.body, webhook);
+
+        const del = await testUtils.testAuthedRequest<{}>(router, `/v2/webhooks/${webhook.id}`, "DELETE");
+        chai.assert.equal(del.statusCode, 200);
+        chai.assert.equal(del.body, {});
+
+        const get = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}`, "GET");
+        chai.assert.equal(get.statusCode, 404);
+    });
+
     describe("secret tests (interdependent)", () => {
         const webhook: Partial<Webhook> = {
             id: generateId(),
