@@ -1,7 +1,7 @@
 import * as superagent from "superagent";
 import log = require("loglevel");
 
-export async function sendDataToCallback<T>(signatures: string, url: string, body?: any): Promise<ParsedProxyResponse<T>> {
+export async function postData<T>(signatures: string, url: string, body?: any): Promise<ParsedProxyResponse<T>> {
     const request = superagent.post(url).send(body);
     request.set("Lightrail-Signature", signatures);
     request.set("Content-Type", "application/json");

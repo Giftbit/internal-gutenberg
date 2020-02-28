@@ -110,7 +110,7 @@ describe("webhooks", function () {
         chai.assert.deepInclude(get.body, patch.body);
     });
 
-    it.only("can delete a webhook", async () => {
+    it("can delete a webhook", async () => {
         const webhook: Partial<Webhook> = {
             id: generateId(),
             url: "https://www.example.com/hooks",
@@ -123,7 +123,7 @@ describe("webhooks", function () {
 
         const del = await testUtils.testAuthedRequest<{}>(router, `/v2/webhooks/${webhook.id}`, "DELETE");
         chai.assert.equal(del.statusCode, 200);
-        chai.assert.equal(del.body, {});
+        chai.assert.isEmpty(del.body);
 
         const get = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}`, "GET");
         chai.assert.equal(get.statusCode, 404);
@@ -269,7 +269,7 @@ describe("webhooks", function () {
                 }
             },
             required: ["id", "url", "events"]
-        })
+        });
     });
 
     it("assert webhookUpdateSchema", async () => {
@@ -293,7 +293,7 @@ describe("webhooks", function () {
                 }
             },
             required: []
-        })
+        });
     });
 
     describe("data isolation among users", () => {

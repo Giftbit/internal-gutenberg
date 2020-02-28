@@ -1,5 +1,6 @@
 import * as awslambda from "aws-lambda";
-import {Message, SendMessageRequest} from "aws-sdk/clients/sqs";
+import {SendMessageRequest} from "aws-sdk/clients/sqs";
+import {DeleteMessageError} from "../errors/DeleteMessageError";
 
 /**
  * Events that happened in the Lightrail system.  Multiple microservices
@@ -90,31 +91,21 @@ export namespace LightrailEvent {
     }
 
     export function parseFromSQSRecord(record: awslambda.SQSRecord): LightrailEvent {
-        return {
-            specVersion: record.messageAttributes["specversion"]?.stringValue as "1.0",
-            type: record.messageAttributes["type"]?.stringValue,
-            source: record.messageAttributes["source"]?.stringValue,
-            id: record.messageAttributes["id"]?.stringValue,
-            time: record.messageAttributes["time"]?.stringValue,
-            userId: record.messageAttributes["userid"]?.stringValue,
-            dataContentType: record.messageAttributes["datacontenttype"]?.stringValue as "application/json",
-            deliveredWebhookIds: record.messageAttributes["deliveredwebhookids"] ? JSON.parse(record.messageAttributes["deliveredwebhookids"].stringValue) : [],
-            data: JSON.parse(record.body)
-        };
-    }
-
-    export function parseFromSQSMessage(record: Message): LightrailEvent {
-        return {
-            specVersion: record.MessageAttributes["specversion"]?.StringValue as "1.0",
-            type: record.MessageAttributes["type"]?.StringValue,
-            source: record.MessageAttributes["source"]?.StringValue,
-            id: record.MessageAttributes["id"]?.StringValue,
-            time: record.MessageAttributes["time"]?.StringValue,
-            userId: record.MessageAttributes["userid"]?.StringValue,
-            dataContentType: record.MessageAttributes["datacontenttype"]?.StringValue as "application/json",
-            deliveredWebhookIds: record.MessageAttributes["deliveredwebhookids"] ? JSON.parse(record.MessageAttributes["deliveredwebhookids"].StringValue) : [],
-            data: JSON.parse(record.Body)
-        };
+        try {
+            return {
+                specVersion: record.messageAttributes["specversion"]?.stringValue as "1.0",
+                type: record.messageAttributes["type"]?.stringValue,
+                source: record.messageAttributes["source"]?.stringValue,
+                id: record.messageAttributes["id"]?.stringValue,
+                time: record.messageAttributes["time"]?.stringValue,
+                userId: record.messageAttributes["userid"]?.stringValue,
+                dataContentType: record.messageAttributes["datacontenttype"]?.stringValue as "application/json",
+                deliveredWebhookIds: record.messageAttributes["deliveredwebhookids"] ? JSON.parse(record.messageAttributes["deliveredwebhookids"].stringValue) : [],
+                data: JSON.parse(record.body)
+            };
+        } catch (e) {
+            throw new DeleteMessageError(`Error parsing record: ${JSON.stringify(record)}.`);
+        }
     }
 
     export function toSQSSendMessageRequest(event: LightrailEvent, delaySeconds: number = 0): SendMessageRequest {

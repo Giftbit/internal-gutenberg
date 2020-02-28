@@ -49,16 +49,15 @@ Resources:
         KeyType: HASH
       - AttributeName: sk
         KeyType: RANGE
-      ProvisionedThroughput:
-        ReadCapacityUnits: !If [UseProductionCapacity, 10, 1]
-        WriteCapacityUnits: !If [UseProductionCapacity, 5, 1]
+      #      SSESpecification: todo - should this be enabled?
+      #        SSEEnabled: true
+      BillingMode: PAY_PER_REQUEST
       Tags:
       - Key: ShortName
         Value: WebhookTable
       - Key: Service
         Value: Gutenberg
 
-  # todo - sqs queue
   EventQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -176,6 +175,7 @@ Resources:
       Handler: index.handler
       Runtime: nodejs10.x
       MemorySize: 128
+      ReservedConcurrentExecutions: 5 # The maximum number of concurrent executions that you want to reserve for the function.
       Timeout: 60 # seconds, 300 max. This should match the queue's default message visibility.
       Environment:
         Variables:
@@ -246,84 +246,9 @@ Resources:
       Tags:
         ShortName: EventsFunction
         Service: Gutenberg
-  #      Events:
-  #        MySQSEvent:
-  #          Type: SQS
-  #          Properties:
-  #            Queue: !GetAtt EventQueue.Arn
-  #            BatchSize: 10
-
-  PollingFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: ../dist/poller/poller.zip
-      Handler: index.handler
-      Runtime: nodejs10.x
-      MemorySize: 128
-      Timeout: 60 # seconds, 300 max. This should match the queue's default message visibility.
-      Environment:
-        Variables:
-          EVENT_QUEUE: !Ref EventQueue
-          EVENT_FUNCTION: !GetAtt EventsFunction.Arn
-          SECRET_ENCRYPTION_KEY: !Ref WebhookSecretEncryptionKey
-          SECURE_CONFIG_BUCKET: !Ref SecureConfigBucket
-          SECURE_CONFIG_KEY_ASSUME_STORAGE_SCOPE_TOKEN: assumeStorageScopeToken.json
-          SECURE_CONFIG_KEY_JWT: authentication_badge_key.json
-          SECURE_CONFIG_KEY_ROLE_DEFINITIONS: RoleDefinitions.json
-          SECURE_CONFIG_KEY_SENTRY: sentry_lambda_services.json
-      Policies:
-      - Version: 2012-10-17
-        Statement:
-        - Effect: Allow
-          Action:
-          - lambda:InvokeFunction
-          - lambda:InvokeAsync
-          Resource: !GetAtt EventsFunction.Arn
-        - # Queue Access
-          Effect: Allow
-          Action:
-          - sqs:ReceiveMessage
-          Resource:
-          - !GetAtt EventQueue.Arn
-        - Effect: Allow
-          Action:
-          - s3:GetObject
-          Resource:
-          - !Sub "arn:aws:s3:::${SecureConfigBucket}/authentication_badge_key.json"
-          - !Sub "arn:aws:s3:::${SecureConfigBucket}/RoleDefinitions.json"
-          - !Sub "arn:aws:s3:::${SecureConfigBucket}/sentry_lambda_services.json"
-          - !Sub "arn:aws:s3:::${SecureConfigBucket}/assumeStorageScopeToken.json"
-        - Effect: Allow
-          Action:
-          - kms:Decrypt
-          - kms:DescribeKey
-          - kms:Encrypt
-          - kms:GenerateDataKey*
-          Resource:
-          - !Ref LightrailEventEncryptionKeyArn
-        - Effect: Allow
-          Action:
-          - kms:Decrypt
-          - kms:DescribeKey
-          Resource:
-          - !Ref SecureConfigKmsArn
-          Condition:
-            StringLike:
-              "kms:ViaService":
-                !Sub "s3.${AWS::Region}.amazonaws.com"
-              "kms:EncryptionContext:aws:s3:arn":
-                !Sub "arn:aws:s3:::${SecureConfigBucket}/*"
-        - Effect: Allow
-          Action:
-          - secretsmanager:GetSecretValue
-          Resource:
-          - !Ref WebhookSecretEncryptionKey
-      Tags:
-        ShortName: PollingFunction
-        Service: Gutenberg
       Events:
-        PollingSchedule:
-          Type: Schedule
+        MySQSEvent:
+          Type: SQS
           Properties:
-            Schedule: rate(1 minute)
-            Input: !Sub ""
+            Queue: !GetAtt EventQueue.Arn
+            BatchSize: 10

@@ -1,7 +1,7 @@
 import * as awslambda from "aws-lambda";
 import {LightrailEvent} from "./LightrailEvent";
 import * as chai from "chai";
-import {defaultTestUser, generateId} from "../../utils/test/testUtils";
+import {defaultTestUser, generateId} from "../../../utils/test/testUtils";
 
 describe("LightrailEvent", () => {
 
@@ -33,7 +33,12 @@ describe("LightrailEvent", () => {
                     stringListValues: null,
                     binaryListValues: null,
                 },
-                id: {dataType: "String", stringValue: "123", stringListValues: null, binaryListValues: null,},
+                id: {
+                    dataType: "String",
+                    stringValue: "123",
+                    stringListValues: null,
+                    binaryListValues: null,
+                },
                 time: {
                     dataType: "String",
                     stringValue: date.toISOString(),
@@ -91,8 +96,6 @@ describe("LightrailEvent", () => {
             "deliveredWebhookIds": ["webhook1", "webhook2"],
             "data": {"plane": "boeing"}
         });
-
-        console.log(JSON.stringify(lrEvent2));
     });
 
     it("parsing a partial event", () => {

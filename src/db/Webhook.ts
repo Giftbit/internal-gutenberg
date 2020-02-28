@@ -22,14 +22,14 @@ interface DbWebhook extends Webhook {
 }
 
 export interface WebhookSecret {
-    id: string,
-    secret: string,
-    createdDate: string
+    id: string;
+    secret: string;
+    createdDate: string;
 }
 
 interface DbWebhookSecret {
-    id: string,
-    encryptedSecret: string,
+    id: string;
+    encryptedSecret: string;
     createdDate: string
 }
 
@@ -115,6 +115,14 @@ export namespace Webhook {
             }
         }
         return false;
+    }
+
+    // obfuscates any secrets that are in full
+    export function toStringSafe(webhook: Webhook): string {
+        return JSON.stringify({
+            ...webhook,
+            secrets: webhook.secrets.map(secret => ({...secret, secret: getSecretLastFour(secret.secret)}))
+        })
     }
 }
 

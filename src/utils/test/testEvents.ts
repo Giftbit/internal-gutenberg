@@ -1,4 +1,4 @@
-import {LightrailEvent} from "../../lambdas/events/LightrailEvent";
+import {LightrailEvent} from "../../lambdas/events/model/LightrailEvent";
 import {defaultTestUser, generateId} from "./testUtils";
 
 export namespace TestEvents {

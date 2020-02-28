@@ -18,7 +18,7 @@ export function getNewWebhookSecret(): WebhookSecret {
         id: uuid.v4(),
         secret: generateSecret(),
         createdDate: new Date().toISOString()
-    }
+    };
 }
 
 export function generateSecret() {

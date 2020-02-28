@@ -1,39 +1,37 @@
 import * as aws from "aws-sdk";
-import {Message, SendMessageRequest} from "aws-sdk/clients/sqs";
+import {SendMessageRequest} from "aws-sdk/clients/sqs";
+import {SQSRecord} from "aws-lambda";
 import SQS = require("aws-sdk/clients/sqs");
 import log = require("loglevel");
 
 const MAX_VISIBILITY_TIMEOUT = 43200;
 
-export const sqs = new aws.SQS({
-    region: "us-west-2"
-});
+export const sqs = new aws.SQS();
 
 export namespace SqsUtils {
     export async function sendMessage(message: SendMessageRequest): Promise<SQS.Types.SendMessageResult> {
-        log.info(`SQS sendMessage ${message.MessageAttributes["id"]}.`);
+        log.info(`SQS sendMessage.`, JSON.stringify(message));
         return await sqs.sendMessage(message).promise();
     }
 
-    export async function deleteMessage(message: Message): Promise<any> {
-        log.info(`SQS delete message ${message.MessageId}.`);
+    export async function deleteMessage(record: SQSRecord): Promise<any> {
+        log.info(`SQS delete message ${record.messageId}.`);
         return await sqs.deleteMessage({
             QueueUrl: process.env["EVENT_QUEUE"],
-            ReceiptHandle: message.ReceiptHandle
-        });
+            ReceiptHandle: record.receiptHandle
+        }).promise();
     }
 
-    export async function backoff(message: Message): Promise<{}> {
-        const receivedCount = parseInt(message.Attributes.ApproximateReceiveCount);
+    export async function backoffMessage(record: SQSRecord): Promise<{}> {
+        const receivedCount = parseInt(record.attributes.ApproximateReceiveCount);
+        const backoffTimeout = getBackoffTimeout(receivedCount);
 
-        const params: aws.SQS.ChangeMessageVisibilityRequest = {
-            ReceiptHandle: message.ReceiptHandle,
+        log.info(`SQS changeMessageVisibility ${record.messageId}. Received count: ${receivedCount}. Visibility timeout: ${backoffTimeout}.`);
+        return await sqs.changeMessageVisibility({
+            ReceiptHandle: record.receiptHandle,
             QueueUrl: process.env["EVENT_QUEUE"],
-            VisibilityTimeout: getBackoffTimeout(receivedCount)
-        };
-
-        log.info(`SQS changeMessageVisibility ${message.MessageId}. Received count: ${receivedCount}. Visibility timeout: ${params.VisibilityTimeout}.`);
-        return await sqs.changeMessageVisibility(params);
+            VisibilityTimeout: backoffTimeout
+        }).promise();
     }
 
     export async function receiveMessage(waitTimeSeconds: number = 0): Promise<SQS.Types.ReceiveMessageResult> {
