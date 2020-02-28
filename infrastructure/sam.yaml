@@ -1,0 +1,254 @@
+# see https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md
+
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Gutenberg is a broadcaster of events.
+
+Parameters:
+  Capacity:
+    Type: String
+    Description: Level of production capacity to use (high or low)
+    AllowedPattern: (high|low)
+    Default: low
+  LightrailDomain:
+    Type: String
+    Description: The domain of the Lightrail REST API
+    AllowedPattern: (\w+\.)+\w{3}
+  LightrailEventTopicArn:
+    Type: String
+    Description: Optional ARN of the SNS topic on Lightrail Events
+    AllowedPattern: (arn:aws:sns:[a-zA-Z_0-9\-]+:\d{12}:[a-zA-Z_0-9+=,.@\-_/]+)?
+    Default: ""
+  LightrailEventEncryptionKeyArn:
+    Type: String
+    Description: Optional ARN of the KMS key encrypting Lightrail Events
+    AllowedPattern: (arn:aws:kms:[a-z0-9-]+:\d{12}:key/[a-z0-9-]+)?
+  SecureConfigBucket:
+    Type: String
+    Description: Name of the S3 bucket holding the JWT secure config
+  SecureConfigKmsArn:
+    Type: String
+    Description: Optional ARN of the KMS encrypting the S3 bucket
+    AllowedPattern: arn:aws:kms:[a-zA-Z_0-9\-]+:\d{12}:key/[a-zA-Z_0-9+=,.@\-_/]+
+
+Conditions:
+  UseProductionCapacity: !Equals [!Ref Capacity, high]
+
+Resources:
+
+  WebhookTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
+      KeySchema:
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+      #      SSESpecification: todo - should this be enabled?
+      #        SSEEnabled: true
+      BillingMode: PAY_PER_REQUEST
+      Tags:
+      - Key: ShortName
+        Value: WebhookTable
+      - Key: Service
+        Value: Gutenberg
+
+  EventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 604800 # in seconds = 7 days (the max is 14 days)
+      # RedrivePolicy: Json # Used for setting up deadletter queue.
+      VisibilityTimeout: 60
+
+  SnsToSqsPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+      - !Ref EventQueue
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            AWS: '*'
+          Action:
+          - sqs:SendMessage
+          Resource: !GetAtt EventQueue.Arn
+          Condition:
+            StringEquals:
+              aws:SourceArn: !Ref LightrailEventTopicArn
+
+  SnsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      Endpoint: !GetAtt EventQueue.Arn
+      TopicArn: !Ref LightrailEventTopicArn
+      RawMessageDelivery: true # This correctly sets the message attributes in SQS message.
+
+  WebhookSecretEncryptionKey:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: 'The key used to encrypt webhook secrets at rest.'
+      GenerateSecretString:
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\'
+      Tags:
+      - Key: Service
+        Value: Gutenberg
+
+  RestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../dist/rest/rest.zip
+      Handler: index.handler
+      Runtime: nodejs10.x
+      MemorySize: 128
+      Timeout: 30 # seconds, 300 max
+      Environment:
+        Variables:
+          WEBHOOK_TABLE: !Ref WebhookTable
+          SECRET_ENCRYPTION_KEY: !Ref WebhookSecretEncryptionKey
+          SECURE_CONFIG_BUCKET: !Ref SecureConfigBucket
+          SECURE_CONFIG_KEY_ASSUME_STORAGE_SCOPE_TOKEN: assumeStorageScopeToken.json
+          SECURE_CONFIG_KEY_JWT: authentication_badge_key.json
+          SECURE_CONFIG_KEY_ROLE_DEFINITIONS: RoleDefinitions.json
+          SECURE_CONFIG_KEY_SENTRY: sentry_lambda_services.json
+      Policies:
+      - Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:BatchGetItem
+          - dynamodb:DescribeTable
+          - dynamodb:DeleteItem
+          - dynamodb:GetItem
+          - dynamodb:PutItem
+          - dynamodb:Query
+          Resource:
+          - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WebhookTable}"
+          - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WebhookTable}/*"
+        - Effect: Allow
+          Action:
+          - s3:GetObject
+          Resource:
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/authentication_badge_key.json"
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/RoleDefinitions.json"
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/sentry_lambda_services.json"
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/assumeStorageScopeToken.json"
+        - Effect: Allow
+          Action:
+          - kms:Decrypt
+          - kms:DescribeKey
+          Resource:
+          - !Ref SecureConfigKmsArn
+          Condition:
+            StringLike:
+              "kms:ViaService":
+                !Sub "s3.${AWS::Region}.amazonaws.com"
+              "kms:EncryptionContext:aws:s3:arn":
+                !Sub "arn:aws:s3:::${SecureConfigBucket}/*"
+        - Effect: Allow
+          Action:
+          - secretsmanager:GetSecretValue
+          Resource:
+          - !Ref WebhookSecretEncryptionKey
+      Tags:
+        ShortName: RestFunction
+        Service: Gutenberg
+      Events:
+        RestApi:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+  EventsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../dist/events/events.zip
+      Handler: index.handler
+      Runtime: nodejs10.x
+      MemorySize: 128
+      ReservedConcurrentExecutions: 5 # The maximum number of concurrent executions that you want to reserve for the function.
+      Timeout: 60 # seconds, 300 max. This should match the queue's default message visibility.
+      Environment:
+        Variables:
+          EVENT_QUEUE: !Ref EventQueue
+          WEBHOOK_TABLE: !Ref WebhookTable
+          SECRET_ENCRYPTION_KEY: !Ref WebhookSecretEncryptionKey
+          SECURE_CONFIG_BUCKET: !Ref SecureConfigBucket
+          SECURE_CONFIG_KEY_ASSUME_STORAGE_SCOPE_TOKEN: assumeStorageScopeToken.json
+          SECURE_CONFIG_KEY_JWT: authentication_badge_key.json
+          SECURE_CONFIG_KEY_ROLE_DEFINITIONS: RoleDefinitions.json
+          SECURE_CONFIG_KEY_SENTRY: sentry_lambda_services.json
+      Policies:
+      - Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:BatchGetItem
+          - dynamodb:DescribeTable
+          - dynamodb:DeleteItem
+          - dynamodb:GetItem
+          - dynamodb:PutItem
+          - dynamodb:Query
+          Resource:
+          - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WebhookTable}"
+          - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WebhookTable}/*"
+        - # Queue Access
+          Effect: Allow
+          Action:
+          - sqs:ChangeMessageVisibility
+          - sqs:DeleteMessage
+          - sqs:ReceiveMessage
+          - sqs:SendMessage
+          Resource:
+          - !GetAtt EventQueue.Arn
+        - Effect: Allow
+          Action:
+          - s3:GetObject
+          Resource:
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/authentication_badge_key.json"
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/RoleDefinitions.json"
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/sentry_lambda_services.json"
+          - !Sub "arn:aws:s3:::${SecureConfigBucket}/assumeStorageScopeToken.json"
+        - Effect: Allow
+          Action:
+          - kms:Decrypt
+          - kms:DescribeKey
+          - kms:Encrypt
+          - kms:GenerateDataKey*
+          Resource:
+          - !Ref LightrailEventEncryptionKeyArn
+        - Effect: Allow
+          Action:
+          - kms:Decrypt
+          - kms:DescribeKey
+          Resource:
+          - !Ref SecureConfigKmsArn
+          Condition:
+            StringLike:
+              "kms:ViaService":
+                !Sub "s3.${AWS::Region}.amazonaws.com"
+              "kms:EncryptionContext:aws:s3:arn":
+                !Sub "arn:aws:s3:::${SecureConfigBucket}/*"
+        - Effect: Allow
+          Action:
+          - secretsmanager:GetSecretValue
+          Resource:
+          - !Ref WebhookSecretEncryptionKey
+      Tags:
+        ShortName: EventsFunction
+        Service: Gutenberg
+      Events:
+        MySQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt EventQueue.Arn
+            BatchSize: 10
