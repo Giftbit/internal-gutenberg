@@ -61,8 +61,7 @@ Resources:
   EventQueue:
     Type: AWS::SQS::Queue
     Properties:
-      MessageRetentionPeriod: 604800 # in seconds = 7 days (the max is 14 days)
-      # RedrivePolicy: Json # Used for setting up deadletter queue.
+      MessageRetentionPeriod: 604800 # in seconds (7 days)
       VisibilityTimeout: 60
 
   SnsToSqsPolicy:
@@ -89,7 +88,7 @@ Resources:
       Protocol: sqs
       Endpoint: !GetAtt EventQueue.Arn
       TopicArn: !Ref LightrailEventTopicArn
-      RawMessageDelivery: true # This correctly sets the message attributes in SQS message.
+      RawMessageDelivery: true # Required to convert SNS message attributes to SQS message attributes.
 
   WebhookSecretEncryptionKey:
     Type: AWS::SecretsManager::Secret
@@ -175,11 +174,12 @@ Resources:
       Handler: index.handler
       Runtime: nodejs10.x
       MemorySize: 128
-      ReservedConcurrentExecutions: 5 # The maximum number of concurrent executions that you want to reserve for the function.
+      ReservedConcurrentExecutions: 5 # Max concurrent executions. This prevents downstream drowning. 5 is a guess.
       Timeout: 60 # seconds, 300 max. This should match the queue's default message visibility.
       Environment:
         Variables:
           EVENT_QUEUE: !Ref EventQueue
+          DEAD_LETTER_QUEUE: !Ref EventQueue
           WEBHOOK_TABLE: !Ref WebhookTable
           SECRET_ENCRYPTION_KEY: !Ref WebhookSecretEncryptionKey
           SECURE_CONFIG_BUCKET: !Ref SecureConfigBucket
@@ -201,8 +201,7 @@ Resources:
           Resource:
           - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WebhookTable}"
           - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WebhookTable}/*"
-        - # Queue Access
-          Effect: Allow
+        - Effect: Allow
           Action:
           - sqs:ChangeMessageVisibility
           - sqs:DeleteMessage
@@ -210,6 +209,7 @@ Resources:
           - sqs:SendMessage
           Resource:
           - !GetAtt EventQueue.Arn
+          - !GetAtt EventDeadLetterQueue.Arn
         - Effect: Allow
           Action:
           - s3:GetObject

@@ -3,7 +3,6 @@ import * as dynameh from "dynameh";
 
 export const dynamodb = new aws.DynamoDB({
     apiVersion: "2012-08-10",
-    // credentials: new aws.Credentials("AKID", "SECRET"),
     endpoint: process.env["TEST_ENV"] === "true" ? "http://localhost:8000" : undefined,
     region: process.env["AWS_REGION"]
 });

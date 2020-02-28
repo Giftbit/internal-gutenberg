@@ -8,10 +8,10 @@ import * as httpUtils from "../../utils/httpUtils";
 import {installAuthedRestRoutes} from "../rest/installAuthedRestRoutes";
 import * as sinon from "sinon";
 import {LightrailEvent} from "./model/LightrailEvent";
-import {dispatch} from "./webhookDispatcher";
+import {sendEvent} from "./eventSender";
 
-describe("webhookDispatcher", () => {
-
+describe("eventSender", function() {
+    this.timeout(5000);
     const router = new cassava.Router();
     const sinonSandbox = sinon.createSandbox();
 
@@ -27,7 +27,7 @@ describe("webhookDispatcher", () => {
         sinonSandbox.restore();
     });
 
-    describe("dispatch", () => {
+    describe("sendEvent", () => {
         it("can process event where user has no webhooks", async () => {
             const event: LightrailEvent = {
                 specVersion: "1.0",
@@ -45,7 +45,7 @@ describe("webhookDispatcher", () => {
             };
 
 
-            const res = await dispatch(event);
+            const res = await sendEvent(event);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.isEmpty(res.deliveredWebhookIds);
         });
@@ -84,7 +84,7 @@ describe("webhookDispatcher", () => {
                 }
             };
 
-            const res = await dispatch(event);
+            const res = await sendEvent(event);
             chai.assert.sameMembers(res.deliveredWebhookIds, [webhook.id]);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.isNotNull(callbackStub.firstCall);
@@ -135,7 +135,7 @@ describe("webhookDispatcher", () => {
                 }
             };
 
-            const res = await dispatch(event);
+            const res = await sendEvent(event);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.sameMembers(res.deliveredWebhookIds, [webhook.id, create2.body.id]);
             chai.assert.isNotNull(callbackStub.secondCall);
@@ -176,7 +176,7 @@ describe("webhookDispatcher", () => {
                 }
             };
 
-            const res = await dispatch(event);
+            const res = await sendEvent(event);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.isEmpty(res.deliveredWebhookIds);
             chai.assert.isNull(callbackStub.firstCall);
@@ -216,7 +216,7 @@ describe("webhookDispatcher", () => {
                 }
             };
 
-            const res = await dispatch(event);
+            const res = await sendEvent(event);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.isEmpty(res.deliveredWebhookIds);
             chai.assert.isNull(callbackStub.firstCall);
@@ -256,7 +256,7 @@ describe("webhookDispatcher", () => {
                 }
             };
 
-            const res = await dispatch(event);
+            const res = await sendEvent(event);
             chai.assert.sameMembers(res.failedWebhookIds, [webhook.id]);
             chai.assert.isEmpty(res.deliveredWebhookIds);
             chai.assert.isNotNull(callbackStub.firstCall);
@@ -304,7 +304,7 @@ describe("webhookDispatcher", () => {
                 deliveredWebhookIds: [webhook.id]
             };
 
-            const res = await dispatch(event);
+            const res = await sendEvent(event);
             chai.assert.sameMembers(res.failedWebhookIds, [create2.body.id]);
             chai.assert.sameMembers(res.deliveredWebhookIds, [webhook.id]);
             chai.assert.isNotNull(callbackStub.firstCall);

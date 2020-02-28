@@ -6,12 +6,10 @@
     "build": "webpack",
     "clean": "rimraf ./dist",
     "lint": "tslint --project tsconfig.json",
-    "test": "npm run test:startdb; TEST_ENV=true AWS_REGION=us-west-2 WEBHOOK_TABLE=GutenbergTable mocha --recursive --throw-deprecation --require ts-node/register --require ./src/utils/test/setLogLevelSilent.ts --exit \"src/**/*.test.ts\"; npm run test:stopdb & npm run test:stopsqs",
+    "test": "npm run test:startdb; TEST_ENV=true AWS_REGION=us-west-2 WEBHOOK_TABLE=GutenbergTable EVENT_QUEUE=doesntmatterfortesting mocha --recursive --throw-deprecation --require ts-node/register --require ./src/utils/test/setLogLevelSilent.ts --exit \"src/**/*.test.ts\"; npm run test:stopdb",
     "test:debug": "npm run test:startdb; TEST_ENV=true AWS_REGION=us-west-2 WEBHOOK_TABLE=GutenbergTable mocha --recursive --throw-deprecation --require ts-node/register --require ./src/utils/test/setLogLevelDebug.ts --exit \"src/**/*.test.ts\"; npm run test:stopdb",
     "test:startdb": "docker start gutenberg-test-db || (docker run --name gutenberg-test-db -p 8000:8000 amazon/dynamodb-local)",
-    "test:stopdb": "docker stop gutenberg-test-db",
-    "test:startsqs": "docker start gutenberg-test-queue || (docker run --name gutenberg-test-queue -p 9324:9324 softwaremill/elasticmq)",
-    "test:stopsqs": "docker stop gutenberg-test-queue"
+    "test:stopdb": "docker stop gutenberg-test-db"
   },
   "repository": {
     "type": "git",

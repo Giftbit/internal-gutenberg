@@ -17,6 +17,6 @@ describe("signatureUtils", () => {
         const payload = {test: "test"};
 
         const signatures = getSignatures(secrets, payload);
-        chai.assert.equal(signatures, "3e80b3778b3b03766e7be993131c0af2ad05630c5d96fb7fa132d05b77336e04,3e80b3778b3b03766e7be993131c0af2ad05630c5d96fb7fa132d05b77336e04", "hard coded signatures to match secrets and payload")
+        chai.assert.equal(signatures, "3e80b3778b3b03766e7be993131c0af2ad05630c5d96fb7fa132d05b77336e04,3e80b3778b3b03766e7be993131c0af2ad05630c5d96fb7fa132d05b77336e04", "hard coded signatures to match secrets and payload");
     });
 });

@@ -12,7 +12,8 @@ import {webhookCreateSchema, webhookUpdateSchema} from "./webhooks";
 
 chai.use(chaiExclude);
 
-describe("webhooks", function () {
+describe("webhooks", function() {
+    this.timeout(5000);
     const router = new cassava.Router();
 
     before(async function () {
@@ -122,11 +123,83 @@ describe("webhooks", function () {
         chai.assert.deepInclude(create.body, webhook);
 
         const del = await testUtils.testAuthedRequest<{}>(router, `/v2/webhooks/${webhook.id}`, "DELETE");
-        chai.assert.equal(del.statusCode, 200);
+        chai.assert.equal(del.statusCode, 204);
         chai.assert.isEmpty(del.body);
 
         const get = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}`, "GET");
         chai.assert.equal(get.statusCode, 404);
+    });
+
+    it("can't create webhook with invalid url", async () => {
+        const webhook: Partial<Webhook> = {
+            id: generateId(),
+            url: "garbage",
+            events: ["*"],
+            active: true,
+        };
+        const create = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", webhook);
+        chai.assert.equal(create.statusCode, 422);
+    });
+
+    it("can't create webhook with non-secure url", async () => {
+        const webhook: Partial<Webhook> = {
+            id: generateId(),
+            url: "http://example.com/callback",
+            events: ["*"],
+            active: true,
+        };
+        const create = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", webhook);
+        chai.assert.equal(create.statusCode, 422);
+    });
+
+    it("can create webhook with non-secure url if url param allowHttp=true is supplied", async () => {
+        const webhook: Partial<Webhook> = {
+            id: generateId(),
+            url: "http://example.com/callback",
+            events: ["*"],
+            active: true,
+        };
+        const create = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks?allowHttp=true", "POST", webhook);
+        chai.assert.equal(create.statusCode, 201);
+    });
+
+    it("can't update webhook with non-secure url", async () => {
+        const webhook: Partial<Webhook> = {
+            id: generateId(),
+            url: "https://example.com/callback",
+            events: ["*"],
+            active: true,
+        };
+        const create = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", webhook);
+        chai.assert.equal(create.statusCode, 201);
+
+        const update = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}`, "PATCH", {url: "http://example.com/callback"});
+        chai.assert.equal(update.statusCode, 422);
+    });
+
+    it("can update webhook with non-secure url if url param allowHttp=true is supplied", async () => {
+        const webhook: Partial<Webhook> = {
+            id: generateId(),
+            url: "https://example.com/callback",
+            events: ["*"],
+            active: true,
+        };
+        const create = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", webhook);
+        chai.assert.equal(create.statusCode, 201);
+
+        const update = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}?allowHttp=true`, "PATCH", {url: "http://example.com/callback"});
+        chai.assert.equal(update.statusCode, 422);
+    });
+
+    it("can't create webhook with empty events list", async () => {
+        const webhook: Partial<Webhook> = {
+            id: generateId(),
+            url: "https://example.com/callback",
+            events: [],
+            active: true,
+        };
+        const create = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", webhook);
+        chai.assert.equal(create.statusCode, 422);
     });
 
     describe("secret tests (interdependent)", () => {
@@ -254,7 +327,8 @@ describe("webhooks", function () {
                     pattern: "^[ -~]*$"
                 },
                 url: {
-                    type: "uri"
+                    type: "string",
+                    format: "uri"
                 },
                 events: {
                     type: ["array"],
@@ -262,7 +336,9 @@ describe("webhooks", function () {
                         type: "string",
                         minLength: 1,
                         maxLength: 100
-                    }
+                    },
+                    minItems: 1,
+                    maxItems: 20
                 },
                 active: {
                     type: "boolean"
@@ -278,7 +354,8 @@ describe("webhooks", function () {
             additionalProperties: false,
             properties: {
                 url: {
-                    type: "uri"
+                    type: "string",
+                    format: "uri"
                 },
                 events: {
                     type: ["array"],
@@ -286,7 +363,9 @@ describe("webhooks", function () {
                         type: "string",
                         minLength: 1,
                         maxLength: 100
-                    }
+                    },
+                    minItems: 1,
+                    maxItems: 20
                 },
                 active: {
                     type: "boolean"

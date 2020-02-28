@@ -6,7 +6,7 @@ import {MetricsLogger} from "../../utils/metricsLogger";
 import {postData} from "../../utils/httpUtils";
 import log = require("loglevel");
 
-export async function dispatch(event: LightrailEvent): Promise<{ deliveredWebhookIds: string[], failedWebhookIds: string[] }> {
+export async function sendEvent(event: LightrailEvent): Promise<{ deliveredWebhookIds: string[], failedWebhookIds: string[] }> {
     if (!event.userId) {
         throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a userid. It cannot be processed. Deleting message from queue.`);
     }
@@ -30,14 +30,13 @@ export async function dispatch(event: LightrailEvent): Promise<{ deliveredWebhoo
             const call = await postData(signatures, webhook.url, body);
 
             if (call.statusCode >= 200 && call.statusCode < 300) {
-                MetricsLogger.webhookCallSuccess(event.userId);
                 log.info(`Successfully called webhook ${webhook.id} for event: ${event.id}.`);
+                MetricsLogger.webhookCallSuccess(event.userId);
                 deliveredWebhookIds.push(webhook.id);
 
             } else {
-                // will need to retry this webhook
-                MetricsLogger.webhookCallFailure(event.userId);
                 log.info(`Failed calling webhook ${webhook.id} for event: ${event.id}.`);
+                MetricsLogger.webhookCallFailure(event.userId);
                 failedWebhookIds.push(webhook.id);
             }
         }

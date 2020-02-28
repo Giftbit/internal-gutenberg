@@ -1,12 +1,12 @@
 import {LightrailEvent} from "./model/LightrailEvent";
 import {sameElements} from "../../utils/arrayUtils";
 import {ProcessEventResult} from "./model/ProcessEventResult";
-import {dispatch} from "./webhookDispatcher";
+import {sendEvent} from "./eventSender";
 import log = require("loglevel");
 
 export async function processEvent(event: LightrailEvent, sentTimestamp: number): Promise<ProcessEventResult> {
     log.info(`Processing event: ${JSON.stringify(event)}.`);
-    const result = await dispatch(event);
+    const result = await sendEvent(event);
 
     log.info(`Finished processing event ${event.id}. Result: ${JSON.stringify(result)}.`);
     if (result.failedWebhookIds.length > 0) {
@@ -26,7 +26,7 @@ export async function processEvent(event: LightrailEvent, sentTimestamp: number)
             return {
                 action: "REQUEUE",
                 newMessage: LightrailEvent.toSQSSendMessageRequest(event, 30 /* the call to the webhook just failed so delay a little bit. 30 seconds is quite arbitrary.*/)
-            }
+            };
         }
     } else {
         log.info(`No failing webhookIds so deleting event ${event.id}.`);

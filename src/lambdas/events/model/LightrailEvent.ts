@@ -85,7 +85,7 @@ export namespace LightrailEvent {
         return {
             id: event.id,
             type: event.type,
-            time: event.time,
+            time: event.time instanceof Date ? event.time.toISOString() : event.time,
             data: event.data
         };
     }
@@ -132,6 +132,6 @@ export namespace LightrailEvent {
 export interface LightrailPublicFacingEvent {
     id: string;
     type: string;
-    time: Date | string;
+    time: string;
     data: any;
 }

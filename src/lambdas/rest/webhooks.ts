@@ -5,6 +5,7 @@ import {getNewWebhookSecret} from "./webhookSecretUtils";
 import * as jsonschema from "jsonschema";
 import {pick} from "../../utils/pick";
 import list = Webhook.list;
+import validateUrl = Webhook.validateUrl;
 
 export function installWebhookRest(router: cassava.Router): void {
 
@@ -33,7 +34,7 @@ export function installWebhookRest(router: cassava.Router): void {
             if (webhookCount > 20) {
                 throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `You cannot have more than 20 webhooks. Please delete an existing webhook before creating a new one.`);
             }
-            const webhook = await Webhook.create(auth.userId, auth.teamMemberId, evt.body);
+            const webhook = await Webhook.create(auth.userId, auth.teamMemberId, evt.body, !!evt.queryStringParameters.allowHttp);
             return {
                 statusCode: cassava.httpStatusCode.success.CREATED,
                 body: webhook
@@ -65,6 +66,7 @@ export function installWebhookRest(router: cassava.Router): void {
 
             let webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true); // show secrets so that the update can properly save.
             const updatedWebhook = {...webhook, ...webhookUpdates};
+            validateUrl(updatedWebhook, !!evt.pathParameters.allowHttp);
             await Webhook.update(auth.userId, updatedWebhook);
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
@@ -82,7 +84,7 @@ export function installWebhookRest(router: cassava.Router): void {
             let webhook = await Webhook.get(auth.userId, evt.pathParameters.id);
             await Webhook.del(auth.userId, webhook);
             return {
-                statusCode: cassava.httpStatusCode.success.OK,
+                statusCode: cassava.httpStatusCode.success.NO_CONTENT,
                 body: {}
             };
         });
@@ -168,7 +170,8 @@ export const webhookCreateSchema: jsonschema.Schema = {
             pattern: "^[ -~]*$"
         },
         url: {
-            type: "uri"
+            type: "string",
+            format: "uri"
         },
         events: {
             type: ["array"],
@@ -176,7 +179,9 @@ export const webhookCreateSchema: jsonschema.Schema = {
                 type: "string",
                 minLength: 1,
                 maxLength: 100
-            }
+            },
+            minItems: 1,
+            maxItems: 20
         },
         active: {
             type: "boolean"

@@ -11,7 +11,7 @@ import {LightrailEvent} from "./model/LightrailEvent";
 import {DeleteMessageError} from "./errors/DeleteMessageError";
 import log = require("loglevel");
 
-const stringify = require('json-stringify-safe');
+const stringify = require("json-stringify-safe");
 
 // Wrapping console.log instead of binding (default behaviour for loglevel)
 // Otherwise all log calls are prefixed with the requestId from the first
@@ -37,7 +37,7 @@ const secretEncryptionKey: Promise<GetSecretValueResponse> = secretsManager.getS
 initializeSecretEncryptionKey(Promise.resolve(secretEncryptionKey));
 
 /**
- * Uses SQS as a Trigger. Simply passes any SQS Messages onto the SQS Processor.
+ * Triggered by SQS.
  */
 async function handleSqsMessages(evt: awslambda.SQSEvent, ctx: awslambda.Context): Promise<any> {
     log.info("Received: " + evt.Records.length + " records.");
@@ -45,9 +45,10 @@ async function handleSqsMessages(evt: awslambda.SQSEvent, ctx: awslambda.Context
     for (const record of evt.Records) {
 
         log.info("Processing record: ", JSON.stringify(record));
+        const sentTimestamp = parseInt(record.attributes.SentTimestamp);
         try {
             const event: LightrailEvent = LightrailEvent.parseFromSQSRecord(record);
-            const result = await processEvent(event, parseInt(record.attributes.SentTimestamp));
+            const result = await processEvent(event, sentTimestamp);
 
             if (result.action === "DELETE") {
                 await SqsUtils.deleteMessage(record);
@@ -69,15 +70,15 @@ async function handleSqsMessages(evt: awslambda.SQSEvent, ctx: awslambda.Context
                 log.error(`An unexpected error occurred while processing event: ${JSON.stringify(e)}`);
                 // An unexpected error occurred. Will backoff to a maximum of 12 hours.
                 // Won't delete the message off the queue after 3 days because this represents
-                // an unexpected failure on our side. The message will be retried for up to 14 days
-                // which is the maximum length a message can be in an sqs queue.
+                // an unexpected failure on our side. The message will be retried for up to 7 days
+                // (message retention period set on queue).
                 await SqsUtils.backoffMessage(record);
                 recordsToNotDelete.push(record);
             }
         }
     }
     if (recordsToNotDelete.length > 0) {
-        throw new Error(`Throwing intentional error to prevent records ${recordsToNotDelete.map(r => r.messageId)} from being deleted.`)
+        throw new Error(`Throwing intentional error to prevent records ${recordsToNotDelete.map(r => r.messageId)} from being deleted.`);
     }
 }
 
