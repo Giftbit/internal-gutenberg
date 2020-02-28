@@ -48,6 +48,9 @@ export namespace SqsUtils {
 /**
  * Returns a number between 0 - min(2 ^ receivedCount * 5, 43200)
  * Based on: https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
+ *
+ * Produces values for (increasing receivedCounts):
+ * 10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120, 10240, 20480, 40960, 43200
  */
 export function getBackoffTimeout(receivedCount: number): number {
     const backoff = Math.min(MAX_VISIBILITY_TIMEOUT, Math.pow(2, receivedCount) * 5 /* base backoff multiplier 5s - quite haphazard in choice */);
