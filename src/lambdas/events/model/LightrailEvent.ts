@@ -14,7 +14,7 @@ export interface LightrailEvent {
     /**
      * The version of the CloudEvents specification which the event uses.
      */
-    specVersion: "1.0";
+    specVersion: string;
 
     /**
      * Dot-separated namespace of the event type.
@@ -47,7 +47,7 @@ export interface LightrailEvent {
     /**
      * The ISO-8601 date of when the event was generated.
      */
-    time: Date | string;
+    time: Date;
 
     /**
      * The Lightrail userId of the user that generated the event (if any).
@@ -62,7 +62,7 @@ export interface LightrailEvent {
      * MIME type of the event data.  Currently we're only doing JSON payloads
      * but there may be use cases for other in the future.
      */
-    dataContentType: "application/json";
+    dataContentType: string;
 
     /**
      * The event body.  The shape is entirely dependent upon the type of the event.
@@ -85,7 +85,7 @@ export namespace LightrailEvent {
         return {
             id: event.id,
             type: event.type,
-            time: event.time instanceof Date ? event.time.toISOString() : event.time,
+            time: event.time instanceof Date ? new Date(event.time).toISOString() : event.time,
             data: event.data
         };
     }
@@ -93,13 +93,13 @@ export namespace LightrailEvent {
     export function parseFromSQSRecord(record: awslambda.SQSRecord): LightrailEvent {
         try {
             return {
-                specVersion: record.messageAttributes["specversion"]?.stringValue as "1.0",
+                specVersion: record.messageAttributes["specversion"]?.stringValue,
                 type: record.messageAttributes["type"]?.stringValue,
                 source: record.messageAttributes["source"]?.stringValue,
                 id: record.messageAttributes["id"]?.stringValue,
-                time: record.messageAttributes["time"]?.stringValue,
+                time: new Date(record.messageAttributes["time"]?.stringValue),
                 userId: record.messageAttributes["userid"]?.stringValue,
-                dataContentType: record.messageAttributes["datacontenttype"]?.stringValue as "application/json",
+                dataContentType: record.messageAttributes["datacontenttype"]?.stringValue,
                 deliveredWebhookIds: record.messageAttributes["deliveredwebhookids"] ? JSON.parse(record.messageAttributes["deliveredwebhookids"].stringValue) : [],
                 data: JSON.parse(record.body)
             };
@@ -114,7 +114,7 @@ export namespace LightrailEvent {
                 type: {DataType: "String", StringValue: event.type},
                 source: {DataType: "String", StringValue: event.source},
                 id: {DataType: "String", StringValue: event.id},
-                time: {DataType: "String", StringValue: event.time.toString()},
+                time: {DataType: "String", StringValue: new Date(event.time).toISOString()},
                 datacontenttype: {DataType: "String", StringValue: event.dataContentType},
                 userid: {DataType: "String", StringValue: event.userId},
                 deliveredwebhookids: {

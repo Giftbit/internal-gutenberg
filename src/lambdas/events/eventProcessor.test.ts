@@ -6,7 +6,7 @@ import * as chai from "chai";
 import {installAuthedRestRoutes} from "../rest/installAuthedRestRoutes";
 import * as sinon from "sinon";
 import {LightrailEvent} from "./model/LightrailEvent";
-import * as subsriptionHandler from "./eventSender";
+import * as eventSender from "./eventSender";
 import {processEvent} from "./eventProcessor";
 
 describe("eventProcessor", function() {
@@ -43,9 +43,9 @@ describe("eventProcessor", function() {
     };
     const now = (new Date).getTime();
 
-    it("no failed or delivered webhookIds results in DELETE message request", async () => {
+    it("can process event that has no matching subscriptions. results in DELETE", async () => {
         sinonSandbox.restore();
-        sinonSandbox.stub(subsriptionHandler, "sendEvent")
+        sinonSandbox.stub(eventSender, "sendEvent")
             .onFirstCall().resolves({
             failedWebhookIds: [],
             deliveredWebhookIds: []
@@ -54,9 +54,9 @@ describe("eventProcessor", function() {
         chai.assert.deepEqual(res, {action: "DELETE"});
     });
 
-    it("no failed but delivered webhookIds results in DELETE message request", async () => {
+    it("can process event that has 1 matching subscription that is successfully delivered. results in DELETE", async () => {
         sinonSandbox.restore();
-        sinonSandbox.stub(subsriptionHandler, "sendEvent")
+        sinonSandbox.stub(eventSender, "sendEvent")
             .onFirstCall().resolves({
             failedWebhookIds: [],
             deliveredWebhookIds: ["webhook-1"]
@@ -65,9 +65,9 @@ describe("eventProcessor", function() {
         chai.assert.deepEqual(res, {action: "DELETE"});
     });
 
-    it("failing webhook", async () => {
+    it("can process event that has 1 matching subscription that is unsuccessfully delivered. results in BACKOFF", async () => {
         sinonSandbox.restore();
-        sinonSandbox.stub(subsriptionHandler, "sendEvent")
+        sinonSandbox.stub(eventSender, "sendEvent")
             .onFirstCall().resolves({
             failedWebhookIds: ["webhook-1"],
             deliveredWebhookIds: []
@@ -76,9 +76,9 @@ describe("eventProcessor", function() {
         chai.assert.deepEqual(res, {action: "BACKOFF"});
     });
 
-    it("failing webhook but over 3 days old", async () => {
+    it("can process event that has 1 matching subscription that is unsuccessfully delivered after 3 days of trying. results in DELETE", async () => {
         sinonSandbox.restore();
-        sinonSandbox.stub(subsriptionHandler, "sendEvent")
+        sinonSandbox.stub(eventSender, "sendEvent")
             .onFirstCall().resolves({
             failedWebhookIds: ["webhook-1"],
             deliveredWebhookIds: []
@@ -87,23 +87,23 @@ describe("eventProcessor", function() {
         chai.assert.deepEqual(res, {action: "DELETE"});
     });
 
-    it("failing webhook but new successful delivery", async () => {
+    it("can process event that has 2 matching subscriptions where one is successfully delivered and one fails. results in a REQUEUE so that the successfully delivered webhook isn't called again", async () => {
         sinonSandbox.restore();
-        sinonSandbox.stub(subsriptionHandler, "sendEvent")
+        sinonSandbox.stub(eventSender, "sendEvent")
             .onFirstCall().resolves({
             failedWebhookIds: ["webhook-1"],
             deliveredWebhookIds: ["webhook-2"]
         });
-        const event = JSON.parse(JSON.stringify(defaultEvent));
 
+        const event = JSON.parse(JSON.stringify(defaultEvent));
         const res = await processEvent(event, now);
-        event.deliveredWebhookIds = ["webhook-2"];
-        chai.assert.deepEqual(res, {action: "REQUEUE", newMessage: LightrailEvent.toSQSSendMessageRequest(event, 30)});
+
+        chai.assert.deepEqual(res, {action: "REQUEUE", newMessage: LightrailEvent.toSQSSendMessageRequest({...event, deliveredWebhookIds: ["webhook-2"]}, 30)});
     });
 
-    it("failing webhook with same delivered webhook IDs", async () => {
+    it("can process event that has 2 matching subscriptions where one has already been delivered and the other still fails. results in a BACKOFF", async () => {
         sinonSandbox.restore();
-        sinonSandbox.stub(subsriptionHandler, "sendEvent")
+        sinonSandbox.stub(eventSender, "sendEvent")
             .onFirstCall().resolves({
             failedWebhookIds: ["webhook-1"],
             deliveredWebhookIds: ["webhook-2"]

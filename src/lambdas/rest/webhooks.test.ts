@@ -285,6 +285,12 @@ describe("webhooks", function() {
             }
             ]);
         });
+
+        it("can get a secret after delete", async () => {
+            const get = await testUtils.testAuthedRequest<WebhookSecret>(router, `/v2/webhooks/${webhook.id}/secrets/${initialSecret.id}`, "GET");
+            chai.assert.equal(get.statusCode, 200);
+            chai.assert.deepEqual(get.body, initialSecret);
+        });
     });
 
     it("can list webhooks", async () => {

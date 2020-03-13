@@ -3,15 +3,18 @@ import * as giftbitRoutes from "giftbit-cassava-routes";
 import * as cassava from "cassava";
 import {decryptSecret, encryptSecret, getNewWebhookSecret} from "../lambdas/rest/webhookSecretUtils";
 
-export interface Webhook {
+export interface Webhook extends CreateWebhookParams {
+    secrets?: WebhookSecret[];
+    createdDate: Date;
+    updatedDate: Date;
+    createdBy: string;
+}
+
+export interface CreateWebhookParams {
     id: string;
     url: string;
-    secrets?: WebhookSecret[];
     events: string[];
     active: boolean;
-    createdDate: string;
-    updatedDate: string;
-    createdBy: string;
 }
 
 interface DbWebhook extends Webhook {
@@ -56,16 +59,19 @@ export namespace Webhook {
         return Promise.all(dbObjects.map(o => DbWebhook.fromDbObject(o, showSecrets)));
     }
 
-    export async function create(userId: string, teamMemberId: string, webhook: Webhook, allowHttp: boolean = false): Promise<Webhook> {
-        webhook.createdDate = new Date().toISOString();
-        webhook.updatedDate = webhook.createdDate;
-        webhook.secrets = [getNewWebhookSecret()];
-        webhook.createdBy = teamMemberId;
-        webhook.active = webhook.active != null ? webhook.active : true;
+    export async function create(userId: string, teamMemberId: string, createWebhookParams: CreateWebhookParams, allowHttp: boolean = false): Promise<Webhook> {
+        const now = new Date();
+        const webhook: Webhook = {
+            ...createWebhookParams,
+            createdDate: now,
+            updatedDate: now,
+            secrets: [getNewWebhookSecret()],
+            createdBy: teamMemberId,
+            active: createWebhookParams.active != null ? createWebhookParams.active : true
+        };
+        validateUrl(webhook.url, allowHttp);
 
-        validateUrl(webhook, allowHttp);
-
-        const dbWebhookEndpoint: DbWebhook = await DbWebhook.toDbObject(userId, webhook);
+        const dbWebhookEndpoint: DbWebhook = await DbWebhook.toDbObject(userId, webhook as Webhook);
         const req = objectDynameh.requestBuilder.buildPutInput(dbWebhookEndpoint);
         objectDynameh.requestBuilder.addCondition(req, {
             attribute: "pk",
@@ -73,7 +79,7 @@ export namespace Webhook {
         });
         try {
             await dynamodb.putItem(req).promise();
-            return webhook;
+            return webhook as Webhook;
         } catch (e) {
             if (e.code === "ConditionalCheckFailedException") {
                 throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Webhook with id: ${webhook.id} already exists.`);
@@ -84,7 +90,7 @@ export namespace Webhook {
     }
 
     export async function update(userId: string, webhook: Webhook): Promise<any> {
-        webhook.updatedDate = new Date().toISOString();
+        webhook.updatedDate = new Date();
 
         const dbWebhookEndpoint: Webhook = await DbWebhook.toDbObject(userId, webhook);
         const req = objectDynameh.requestBuilder.buildPutInput(dbWebhookEndpoint);
@@ -94,8 +100,6 @@ export namespace Webhook {
     }
 
     export async function del(userId: string, webhook: Webhook): Promise<any> {
-        webhook.updatedDate = new Date().toISOString();
-
         const dbWebhookEndpoint: Webhook = await DbWebhook.toDbObject(userId, webhook);
         const req = objectDynameh.requestBuilder.buildDeleteInput(dbWebhookEndpoint);
         const resp = await dynamodb.deleteItem(req).promise();
@@ -127,19 +131,19 @@ export namespace Webhook {
         });
     }
 
-    export function validateUrl(webhook: Webhook, allowHttp: boolean) {
-        if (webhook.url.slice(0, 5) !== "https" && !allowHttp) {
-            throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.UNPROCESSABLE_ENTITY, `The url must be secure. If you want to proceed with a non-secure url provide "allowHttp=true" in the url parameters.`);
+    export function validateUrl(url: string, allowHttp: boolean) {
+        if (url.slice(0, 5) !== "https" && !allowHttp) {
+            throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.UNPROCESSABLE_ENTITY, `The url must be secure. If you want to proceed with a non-secure url provide "allowHttp=true" in the url parameters.`, "InsecureWebhookUrl");
         }
     }
 }
 
-namespace DbWebhook {
+export namespace DbWebhook {
     export async function fromDbObject(o: DbWebhook, showSecret: boolean = false): Promise<Webhook> {
         if (!o) {
             return null;
         }
-        const webhook = {
+        const webhook: Webhook = {
             id: o.id,
             url: o.url,
             secrets: o.secrets,
@@ -158,7 +162,7 @@ namespace DbWebhook {
             })));
         }
 
-        return webhook as Webhook;
+        return webhook;
     }
 
     export async function toDbObject(userId: string, webhook: Webhook): Promise<DbWebhook> {

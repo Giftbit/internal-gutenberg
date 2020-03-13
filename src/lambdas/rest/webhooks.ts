@@ -1,6 +1,6 @@
 import * as cassava from "cassava";
 import * as giftbitRoutes from "giftbit-cassava-routes";
-import {Webhook, WebhookSecret} from "../../db/Webhook";
+import {CreateWebhookParams, Webhook, WebhookSecret} from "../../db/Webhook";
 import {getNewWebhookSecret} from "./webhookSecretUtils";
 import * as jsonschema from "jsonschema";
 import {pick} from "../../utils/pick";
@@ -29,12 +29,13 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireScopes("lightrailV2:webhooks:create");
             auth.requireIds("teamMemberId");
             evt.validateBody(webhookCreateSchema);
+            const createWebhookParams: CreateWebhookParams = evt.body;
 
             const webhookCount = (await list(auth.userId)).length;
             if (webhookCount > 20) {
                 throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `You cannot have more than 20 webhooks. Please delete an existing webhook before creating a new one.`);
             }
-            const webhook = await Webhook.create(auth.userId, auth.teamMemberId, evt.body, !!evt.queryStringParameters.allowHttp);
+            const webhook = await Webhook.create(auth.userId, auth.teamMemberId, createWebhookParams, !!evt.queryStringParameters.allowHttp);
             return {
                 statusCode: cassava.httpStatusCode.success.CREATED,
                 body: webhook
@@ -66,7 +67,7 @@ export function installWebhookRest(router: cassava.Router): void {
 
             let webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true); // show secrets so that the update can properly save.
             const updatedWebhook = {...webhook, ...webhookUpdates};
-            validateUrl(updatedWebhook, !!evt.pathParameters.allowHttp);
+            validateUrl(updatedWebhook.url, !!evt.pathParameters.allowHttp);
             await Webhook.update(auth.userId, updatedWebhook);
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
@@ -140,7 +141,7 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireScopes("lightrailV2:webhooks:secrets:delete");
             auth.requireIds("teamMemberId");
 
-            const webhook = await Webhook.get(auth.userId, evt.pathParameters.id);
+            const webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true);
 
             const secretId = evt.pathParameters.secretId;
             if (webhook.secrets.find(s => s.id === secretId)) {

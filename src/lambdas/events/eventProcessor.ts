@@ -13,7 +13,7 @@ export async function processEvent(event: LightrailEvent, sentTimestamp: number)
         if (sameElements(result.deliveredWebhookIds, event.deliveredWebhookIds)) {
             const timeSinceFirstAttempt = new Date().getTime() - sentTimestamp;
             if (timeSinceFirstAttempt > 259200000) {
-                // exceeded 3 days - todo: consider disabling the webhook at this point.
+                // todo - datadog or sentry error so that we're notified.
                 log.info("Too many third party non-2xx response. Exceeded 3 days. Will delete message. Elapsed time (ms): ", timeSinceFirstAttempt);
                 return {action: "DELETE"};
             } else {

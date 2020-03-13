@@ -5,7 +5,7 @@ import {defaultTestUser, generateId} from "../../../utils/test/testUtils";
 
 describe("LightrailEvent", () => {
 
-    it("LightrailEvent.parseFromSQSRecord", () => {
+    it("can parse from SQSRecord to LightrailEvent", () => {
         const date = new Date("2020");
         const sqsRecord: awslambda.SQSRecord = {
             messageId: "id",
@@ -70,7 +70,7 @@ describe("LightrailEvent", () => {
             "type": "plane.created",
             "source": "/gutenberg/tests",
             "id": "123",
-            "time": "2020-01-01T00:00:00.000Z",
+            "time": new Date("2020-01-01T00:00:00.000Z"),
             "userId": "user-123",
             "dataContentType": "application/json",
             "deliveredWebhookIds": [],
@@ -95,7 +95,7 @@ describe("LightrailEvent", () => {
             "type": "plane.created",
             "source": "/gutenberg/tests",
             "id": "123",
-            "time": "2020-01-01T00:00:00.000Z",
+            "time": new Date("2020-01-01T00:00:00.000Z"),
             "userId": "user-123",
             "dataContentType": "application/json",
             "deliveredWebhookIds": ["webhook1", "webhook2"],
@@ -103,7 +103,7 @@ describe("LightrailEvent", () => {
         });
     });
 
-    it("parsing a partial event", () => {
+    it("can parse a partial event", () => {
         const sqsRecord: awslambda.SQSRecord = {
             messageId: "id",
             receiptHandle: "handle",
@@ -122,7 +122,7 @@ describe("LightrailEvent", () => {
         chai.assert.isNotNull(lrEvent);
     });
 
-    it("toPublicFacingEvent", () => {
+    it("can convert LightrailEvent to PublicFacingEvent", () => {
         const lightrailEvent: LightrailEvent = {
             specVersion: "1.0",
             type: "plane.created",
@@ -154,7 +154,7 @@ describe("LightrailEvent", () => {
         });
     });
 
-    it("toSQSSendMessageEvent", () => {
+    it("can convert LightrailEvent to SQSSendMessageEvent", () => {
         const lightrailEvent: LightrailEvent = {
             specVersion: "1.0",
             type: "plane.created",
@@ -188,7 +188,7 @@ describe("LightrailEvent", () => {
                 },
                 time: {
                     DataType: "String",
-                    StringValue: "Wed Dec 31 1969 16:00:00 GMT-0800 (PST)"
+                    StringValue: "1970-01-01T00:00:00.000Z"
                 },
                 datacontenttype: {
                     DataType: "String",

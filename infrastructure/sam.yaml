@@ -5,11 +5,6 @@ Transform: AWS::Serverless-2016-10-31
 Description: Gutenberg is a broadcaster of events.
 
 Parameters:
-  Capacity:
-    Type: String
-    Description: Level of production capacity to use (high or low)
-    AllowedPattern: (high|low)
-    Default: low
   LightrailDomain:
     Type: String
     Description: The domain of the Lightrail REST API
@@ -31,9 +26,6 @@ Parameters:
     Description: Optional ARN of the KMS encrypting the S3 bucket
     AllowedPattern: arn:aws:kms:[a-zA-Z_0-9\-]+:\d{12}:key/[a-zA-Z_0-9+=,.@\-_/]+
 
-Conditions:
-  UseProductionCapacity: !Equals [!Ref Capacity, high]
-
 Resources:
 
   WebhookTable:
@@ -49,8 +41,8 @@ Resources:
         KeyType: HASH
       - AttributeName: sk
         KeyType: RANGE
-      #      SSESpecification: todo - should this be enabled?
-      #        SSEEnabled: true
+      SSESpecification:
+        SSEEnabled: true
       BillingMode: PAY_PER_REQUEST
       Tags:
       - Key: ShortName
@@ -179,7 +171,6 @@ Resources:
       Environment:
         Variables:
           EVENT_QUEUE: !Ref EventQueue
-          DEAD_LETTER_QUEUE: !Ref EventQueue
           WEBHOOK_TABLE: !Ref WebhookTable
           SECRET_ENCRYPTION_KEY: !Ref WebhookSecretEncryptionKey
           SECURE_CONFIG_BUCKET: !Ref SecureConfigBucket
@@ -209,7 +200,6 @@ Resources:
           - sqs:SendMessage
           Resource:
           - !GetAtt EventQueue.Arn
-          - !GetAtt EventDeadLetterQueue.Arn
         - Effect: Allow
           Action:
           - s3:GetObject

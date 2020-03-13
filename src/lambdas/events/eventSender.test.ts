@@ -182,7 +182,7 @@ describe("eventSender", function() {
             chai.assert.isNull(callbackStub.firstCall);
         });
 
-        it("deactivated webhooks are skipped - no calls to make", async () => {
+        it("can process event, deactivated webhooks are skipped - no calls to make", async () => {
             sinonSandbox.restore();
             await resetDb();
             const webhook: Partial<Webhook> = {
@@ -222,7 +222,7 @@ describe("eventSender", function() {
             chai.assert.isNull(callbackStub.firstCall);
         });
 
-        it("one matching webhook but call returns non-2xx - returns 1 failed webhook id", async () => {
+        it("can process event with one matching webhook but call returns non-2xx - returns 1 failed webhook id", async () => {
             sinonSandbox.restore();
             await resetDb();
             const webhook: Partial<Webhook> = {
@@ -264,7 +264,7 @@ describe("eventSender", function() {
             sinonSandbox.restore();
         });
 
-        it("doesn't re-call already delivered webhookIds - call to second webhook again fails", async () => {
+        it("can process event with two matching webhooks, doesn't re-call already delivered webhookIds - call to second webhook again fails", async () => {
             sinonSandbox.restore();
             await resetDb();
             const webhook: Partial<Webhook> = {
