@@ -69,7 +69,7 @@ export namespace Webhook {
             createdBy: teamMemberId,
             active: createWebhookParams.active != null ? createWebhookParams.active : true
         };
-        validateUrl(webhook.url, allowHttp);
+        validateUrl(webhook.url);
 
         const dbWebhookEndpoint: DbWebhook = await DbWebhook.toDbObject(userId, webhook as Webhook);
         const req = objectDynameh.requestBuilder.buildPutInput(dbWebhookEndpoint);
@@ -123,7 +123,6 @@ export namespace Webhook {
         return false;
     }
 
-    // obfuscates any secrets that are in full
     export function toStringSafe(webhook: Webhook): string {
         return JSON.stringify({
             ...webhook,
@@ -131,9 +130,9 @@ export namespace Webhook {
         });
     }
 
-    export function validateUrl(url: string, allowHttp: boolean) {
-        if (url.slice(0, 5) !== "https" && !allowHttp) {
-            throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.UNPROCESSABLE_ENTITY, `The url must be secure. If you want to proceed with a non-secure url provide "allowHttp=true" in the url parameters.`, "InsecureWebhookUrl");
+    export function validateUrl(url: string) {
+        if (url.slice(0, 5) !== "https") {
+            throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.UNPROCESSABLE_ENTITY, `The url must be secure.`, "InsecureWebhookUrl");
         }
     }
 }

@@ -152,17 +152,6 @@ describe("webhooks", function() {
         chai.assert.equal(create.statusCode, 422);
     });
 
-    it("can create webhook with non-secure url if url param allowHttp=true is supplied", async () => {
-        const webhook: Partial<Webhook> = {
-            id: generateId(),
-            url: "http://example.com/callback",
-            events: ["*"],
-            active: true,
-        };
-        const create = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks?allowHttp=true", "POST", webhook);
-        chai.assert.equal(create.statusCode, 201);
-    });
-
     it("can't update webhook with non-secure url", async () => {
         const webhook: Partial<Webhook> = {
             id: generateId(),

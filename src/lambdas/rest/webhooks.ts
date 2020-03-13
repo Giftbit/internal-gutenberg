@@ -35,7 +35,7 @@ export function installWebhookRest(router: cassava.Router): void {
             if (webhookCount > 20) {
                 throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `You cannot have more than 20 webhooks. Please delete an existing webhook before creating a new one.`);
             }
-            const webhook = await Webhook.create(auth.userId, auth.teamMemberId, createWebhookParams, !!evt.queryStringParameters.allowHttp);
+            const webhook = await Webhook.create(auth.userId, auth.teamMemberId, createWebhookParams);
             return {
                 statusCode: cassava.httpStatusCode.success.CREATED,
                 body: webhook
@@ -67,7 +67,7 @@ export function installWebhookRest(router: cassava.Router): void {
 
             let webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true); // show secrets so that the update can properly save.
             const updatedWebhook = {...webhook, ...webhookUpdates};
-            validateUrl(updatedWebhook.url, !!evt.pathParameters.allowHttp);
+            validateUrl(updatedWebhook.url);
             await Webhook.update(auth.userId, updatedWebhook);
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
