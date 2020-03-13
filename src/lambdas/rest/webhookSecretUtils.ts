@@ -2,7 +2,7 @@ import * as crypto from "crypto";
 import * as cryptojs from "crypto-js";
 import {GetSecretValueResponse} from "aws-sdk/clients/secretsmanager";
 import {WebhookSecret} from "../../db/Webhook";
-import uuid = require("uuid");
+import * as uuid from "uuid";
 
 const CODEBASE_ENCRYPTION_PEPPER = "yRPB2lp1dlOPCRn94N8FuCPFLb4hyNzrsA";
 const SECRET_LENGTH = 16;

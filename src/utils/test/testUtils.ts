@@ -5,7 +5,7 @@ import * as giftbitRoutes from "giftbit-cassava-routes";
 import {TestUser} from "./TestUser";
 import {sqs} from "../sqsUtils";
 import log = require("loglevel");
-import uuid = require("uuid/v4");
+import * as uuid from "uuid";
 import SQS = require("aws-sdk/clients/sqs");
 
 const rolesConfig = require("./rolesConfig.json");
@@ -30,7 +30,7 @@ export async function resetDb(): Promise<void> {
 }
 
 export function generateId(length?: number): string {
-    return (uuid() + uuid()).substring(0, length != null ? length : 20);
+    return (uuid.v4() + uuid.v4()).substring(0, length != null ? length : 20);
 }
 
 export const defaultTestUser = new TestUser({
