@@ -2,6 +2,7 @@ import {dynamodb, objectDynameh, queryAll} from "./dynamodb";
 import * as giftbitRoutes from "giftbit-cassava-routes";
 import * as cassava from "cassava";
 import {decryptSecret, encryptSecret, getNewWebhookSecret} from "../lambdas/rest/webhookSecretUtils";
+import {queryCountAll} from "dynameh/dist/queryHelper";
 
 export interface Webhook extends CreateWebhookParams {
     secrets?: WebhookSecret[];
@@ -59,7 +60,12 @@ export namespace Webhook {
         return Promise.all(dbObjects.map(o => DbWebhook.fromDbObject(o, showSecrets)));
     }
 
-    export async function create(userId: string, teamMemberId: string, createWebhookParams: CreateWebhookParams, allowHttp: boolean = false): Promise<Webhook> {
+    export async function count(userId: string): Promise<number> {
+        const req = objectDynameh.requestBuilder.buildQueryInput(DbWebhook.getPK(userId), "begins_with", WEBHOOK_SORT_KEY);
+        return await queryCountAll(dynamodb, req);
+    }
+
+    export async function create(userId: string, teamMemberId: string, createWebhookParams: CreateWebhookParams): Promise<Webhook> {
         const now = new Date();
         const webhook: Webhook = {
             ...createWebhookParams,

@@ -9,6 +9,7 @@ import {TestUser} from "../../utils/test/TestUser";
 import {initializeSecretEncryptionKey} from "./webhookSecretUtils";
 import chaiExclude from "chai-exclude";
 import {webhookCreateSchema, webhookUpdateSchema} from "./webhooks";
+import {GiftbitRestError} from "giftbit-cassava-routes";
 
 chai.use(chaiExclude);
 
@@ -214,8 +215,9 @@ describe("webhooks", function() {
         });
 
         it("can't delete a webhook's only secret", async () => {
-            const del = await testUtils.testAuthedRequest<{}>(router, `/v2/webhooks/${webhook.id}/secrets/${initialSecret.id}`, "DELETE");
+            const del = await testUtils.testAuthedRequest<GiftbitRestError>(router, `/v2/webhooks/${webhook.id}/secrets/${initialSecret.id}`, "DELETE");
             chai.assert.equal(del.statusCode, 409);
+            chai.assert.equal(del.body["messageCode"], "TooFewSecrets");
         });
 
         let secondSecret: WebhookSecret;
@@ -255,8 +257,9 @@ describe("webhooks", function() {
 
         it("can't add a fourth secret - 3 is the max", async () => {
             chai.assert.isNotNull(thirdSecret, "this test depends on the one above and it must have failed");
-            const create = await testUtils.testAuthedRequest<WebhookSecret>(router, `/v2/webhooks/${webhook.id}/secrets`, "POST", {});
+            const create = await testUtils.testAuthedRequest<GiftbitRestError>(router, `/v2/webhooks/${webhook.id}/secrets`, "POST", {});
             chai.assert.equal(create.statusCode, 409);
+            chai.assert.equal(create.body["messageCode"], "TooManySecrets");
         });
 
         it("can delete a secret", async () => {
@@ -403,5 +406,27 @@ describe("webhooks", function() {
             chai.assert.equal(list.body.length, 1);
             chai.assert.sameDeepMembers<Webhook>(list.body, [get1.body]);
         });
+    });
+
+    it("can't create more than 20 webhooks", async () => {
+        await resetDb();
+        const webhook: Partial<Webhook> = {
+            url: `https://example.com/hooks`,
+            active: true,
+            events: ["*"]
+        };
+
+        for (let i = 0; i <= 20; i++) {
+            const request = {...webhook, id: generateId()};
+            if (i < 20) {
+                const create = await testUtils.testAuthedRequest<Webhook>(router, "/v2/webhooks", "POST", request);
+                chai.assert.equal(create.statusCode, 201);
+            } else {
+                const create = await testUtils.testAuthedRequest<GiftbitRestError>(router, "/v2/webhooks", "POST", request);
+                chai.assert.equal(create.statusCode, 409);
+                chai.assert.equal(create.body["messageCode"], "TooManyWebhooks");
+            }
+        }
+        await resetDb();
     });
 });

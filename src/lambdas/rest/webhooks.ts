@@ -31,10 +31,11 @@ export function installWebhookRest(router: cassava.Router): void {
             evt.validateBody(webhookCreateSchema);
             const createWebhookParams: CreateWebhookParams = evt.body;
 
-            const webhookCount = (await list(auth.userId)).length;
-            if (webhookCount > 20) {
-                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `You cannot have more than 20 webhooks. Please delete an existing webhook before creating a new one.`);
+            const webhookCount = await Webhook.count(auth.userId);
+            if (webhookCount >= 20) {
+                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `You cannot have more than 20 webhooks. Please delete an existing webhook before creating a new one.`, "TooManyWebhooks");
             }
+
             const webhook = await Webhook.create(auth.userId, auth.teamMemberId, createWebhookParams);
             return {
                 statusCode: cassava.httpStatusCode.success.CREATED,
@@ -99,7 +100,7 @@ export function installWebhookRest(router: cassava.Router): void {
 
             const webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true);
             if (webhook.secrets.length === 3) {
-                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `A webhook cannot have more than 3 secrets.`);
+                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `A webhook cannot have more than 3 secrets.`, "TooManySecrets");
             }
 
             const secret: WebhookSecret = getNewWebhookSecret();
@@ -146,7 +147,7 @@ export function installWebhookRest(router: cassava.Router): void {
             const secretId = evt.pathParameters.secretId;
             if (webhook.secrets.find(s => s.id === secretId)) {
                 if (webhook.secrets.length === 1) {
-                    throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `A webhook must have at least 1 secret.`);
+                    throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `A webhook must have at least 1 secret.`, "TooFewSecrets");
                 }
                 webhook.secrets = webhook.secrets.filter(s => s.id !== secretId);
             } else {

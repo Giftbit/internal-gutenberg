@@ -47,8 +47,8 @@ export namespace SqsUtils {
 
 /**
  * Based on: https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
- * Users full jitter.
- * Range: 0 - [30, 60, 120, 240, 480, 960, 1920, 3840, 7680, 15360, 30720, 43200]
+ * Implements full jitter which means it determines a maximum and randomly chooses a number between 0 and that maximum.
+ * Maximums based on iteration: [30, 60, 120, 240, 480, 960, 1920, 3840, 7680, 15360, 30720, 43200]
  */
 export function getBackoffTimeout(receivedCount: number): number {
     const backoff = Math.min(MAX_VISIBILITY_TIMEOUT, Math.pow(2, receivedCount) * 15);
