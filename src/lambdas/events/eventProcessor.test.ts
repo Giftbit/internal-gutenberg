@@ -17,7 +17,7 @@ describe("eventProcessor", function() {
     before(async function () {
         const reset = resetDb();
         router.route(testUtils.authRoute);
-        initializeSecretEncryptionKey(Promise.resolve(Promise.resolve({SecretString: "secret"})));
+        initializeSecretEncryptionKey(Promise.resolve({SecretString: "secret"}));
         installAuthedRestRoutes(router);
         await reset;
     });

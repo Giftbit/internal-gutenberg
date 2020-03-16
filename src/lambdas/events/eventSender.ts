@@ -15,7 +15,7 @@ export async function sendEvent(event: LightrailEvent): Promise<{ deliveredWebho
     }
 
     const webhooks: Webhook[] = await Webhook.list(event.userId, true);
-    log.info(`Retrieved Webhooks: ${webhooks.map(Webhook.toStringSafe)}.`);
+    log.info(`Processing event ${event.type}(id: ${JSON.stringify(event.id)}) for user ${event.userId}. Retrieved ${webhooks.length} webhooks. Ids: ${webhooks.map(webhook => webhook.id)}.`);
 
     const deliveredWebhookIds: string[] = event.deliveredWebhookIds ? Object.assign([], event.deliveredWebhookIds) : [];
     const webhooksToProcess = webhooks.filter(webhook => webhook.active && deliveredWebhookIds.indexOf(webhook.id) === -1);
@@ -24,18 +24,15 @@ export async function sendEvent(event: LightrailEvent): Promise<{ deliveredWebho
     for (const webhook of webhooksToProcess) {
 
         if (Webhook.matchesEvent(webhook.events, event.type)) {
-            log.info(`Webhook ${webhook.id} matches event ${event.type}.`);
             const body = LightrailEvent.toPublicFacingEvent(event);
             const signatures = getSignatures(webhook.secrets.map(s => s.secret), body);
             const call = await postData(signatures, webhook.url, body);
 
             if (call.statusCode >= 200 && call.statusCode < 300) {
-                log.info(`Successfully called webhook ${webhook.id} for event: ${event.id}.`);
                 MetricsLogger.webhookCallSuccess(event.userId);
                 deliveredWebhookIds.push(webhook.id);
 
             } else {
-                log.info(`Failed calling webhook ${webhook.id} for event: ${event.id}.`);
                 MetricsLogger.webhookCallFailure(event.userId);
                 failedWebhookIds.push(webhook.id);
             }

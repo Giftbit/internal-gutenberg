@@ -11,8 +11,6 @@ import {LightrailEvent} from "./model/LightrailEvent";
 import {DeleteMessageError} from "./errors/DeleteMessageError";
 import log = require("loglevel");
 
-const stringify = require("json-stringify-safe");
-
 // Wrapping console.log instead of binding (default behaviour for loglevel)
 // Otherwise all log calls are prefixed with the requestId from the first
 // request the lambda received (AWS modifies log calls, loglevel binds to the
@@ -34,7 +32,7 @@ log.setLevel(log.levels.INFO);
 
 const secretsManager = new aws.SecretsManager();
 const secretEncryptionKey: Promise<GetSecretValueResponse> = secretsManager.getSecretValue({SecretId: process.env["SECRET_ENCRYPTION_KEY"]}).promise();
-initializeSecretEncryptionKey(Promise.resolve(secretEncryptionKey));
+initializeSecretEncryptionKey(secretEncryptionKey);
 
 /**
  * Triggered by SQS.
@@ -43,8 +41,6 @@ async function handleSqsMessages(evt: awslambda.SQSEvent, ctx: awslambda.Context
     log.info("Received: " + evt.Records.length + " records.");
     const recordsToNotDelete: SQSRecord[] = [];
     for (const record of evt.Records) {
-
-        log.info("Processing record: ", JSON.stringify(record));
         const sentTimestamp = parseInt(record.attributes.SentTimestamp);
         try {
             const event: LightrailEvent = LightrailEvent.parseFromSQSRecord(record);

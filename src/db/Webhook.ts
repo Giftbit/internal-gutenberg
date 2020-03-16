@@ -129,13 +129,6 @@ export namespace Webhook {
         return false;
     }
 
-    export function toStringSafe(webhook: Webhook): string {
-        return JSON.stringify({
-            ...webhook,
-            secrets: webhook.secrets.map(secret => ({...secret, secret: getSecretLastFour(secret.secret)}))
-        });
-    }
-
     export function validateUrl(url: string) {
         if (url.slice(0, 5) !== "https") {
             throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.UNPROCESSABLE_ENTITY, `The url must be secure.`, "InsecureWebhookUrl");

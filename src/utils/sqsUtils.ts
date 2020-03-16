@@ -10,12 +10,10 @@ export const sqs = new aws.SQS();
 
 export namespace SqsUtils {
     export async function sendMessage(message: SendMessageRequest): Promise<SQS.Types.SendMessageResult> {
-        log.info(`SQS sendMessage.`, JSON.stringify(message));
         return await sqs.sendMessage(message).promise();
     }
 
     export async function deleteMessage(record: SQSRecord): Promise<any> {
-        log.info(`SQS delete message ${record.messageId}.`);
         return await sqs.deleteMessage({
             QueueUrl: process.env["EVENT_QUEUE"],
             ReceiptHandle: record.receiptHandle
