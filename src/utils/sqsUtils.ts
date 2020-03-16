@@ -31,16 +31,6 @@ export namespace SqsUtils {
             VisibilityTimeout: backoffTimeout
         }).promise();
     }
-
-    export async function receiveMessage(waitTimeSeconds: number = 0): Promise<SQS.Types.ReceiveMessageResult> {
-        return await sqs.receiveMessage({
-            QueueUrl: process.env["EVENT_QUEUE"],
-            AttributeNames: ["All"],
-            MessageAttributeNames: ["All"],
-            WaitTimeSeconds: waitTimeSeconds,
-            MaxNumberOfMessages: 10
-        }).promise();
-    }
 }
 
 /**
