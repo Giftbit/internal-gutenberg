@@ -111,7 +111,14 @@ describe("LightrailEvent", () => {
                 plane: "boeing"
             }),
             attributes: null,
-            messageAttributes: {},
+            messageAttributes: {
+                datacontenttype: {
+                    dataType: "String",
+                    stringValue: "application/json",
+                    stringListValues: null,
+                    binaryListValues: null,
+                },
+            },
             md5OfBody: null,
             eventSource: null,
             eventSourceARN: null,
@@ -120,6 +127,35 @@ describe("LightrailEvent", () => {
 
         const lrEvent: LightrailEvent = LightrailEvent.parseFromSQSRecord(sqsRecord);
         chai.assert.isNotNull(lrEvent);
+    });
+
+    it("can't parse record that doesn't have datacontenttype=application/json - throws error", () => {
+        const sqsRecord: awslambda.SQSRecord = {
+            messageId: "id",
+            receiptHandle: "handle",
+            body: JSON.stringify({
+                plane: "boeing"
+            }),
+            attributes: null,
+            messageAttributes: {
+                datacontenttype: {
+                    dataType: "String",
+                    stringValue: "application/json",
+                    stringListValues: null,
+                    binaryListValues: null,
+                },
+            },
+            md5OfBody: null,
+            eventSource: null,
+            eventSourceARN: null,
+            awsRegion: null
+        };
+        try {
+            const lrEvent: LightrailEvent = LightrailEvent.parseFromSQSRecord(sqsRecord);
+            chai.assert.fail("This shouldn't happen, an error should be thrown.")
+        } catch (e) {
+            // do nothing =)
+        }
     });
 
     it("can convert LightrailEvent to PublicFacingEvent", () => {

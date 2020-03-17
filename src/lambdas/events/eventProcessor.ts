@@ -30,7 +30,6 @@ export async function processEvent(event: LightrailEvent, sentTimestamp: number)
             };
         }
     } else {
-        log.info(`No failing webhookIds so deleting event ${event.id}. Delivered webhook ids: ${result.deliveredWebhookIds}.`);
         return {action: "DELETE"};
     }
 }

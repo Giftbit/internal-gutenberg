@@ -2,7 +2,9 @@ import {CreateWebhookParams, DbWebhook, Webhook} from "./Webhook";
 import * as chai from "chai";
 import {generateId, resetDb} from "../utils/test/testUtils";
 import {decryptSecret, initializeSecretEncryptionKey} from "../lambdas/rest/webhookSecretUtils";
+import chaiExclude from "chai-exclude";
 
+chai.use(chaiExclude);
 
 describe("Webhook", () => {
 

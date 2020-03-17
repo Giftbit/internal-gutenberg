@@ -38,7 +38,6 @@ initializeSecretEncryptionKey(secretEncryptionKey);
  * Triggered by SQS.
  */
 async function handleSqsMessages(evt: awslambda.SQSEvent, ctx: awslambda.Context): Promise<any> {
-    log.info("Received: " + evt.Records.length + " records.");
     const recordsToNotDelete: SQSRecord[] = [];
     for (const record of evt.Records) {
         const sentTimestamp = parseInt(record.attributes.SentTimestamp);
@@ -74,7 +73,9 @@ async function handleSqsMessages(evt: awslambda.SQSEvent, ctx: awslambda.Context
         }
     }
     if (recordsToNotDelete.length > 0) {
-        throw new Error(`Throwing intentional error to prevent records ${recordsToNotDelete.map(r => r.messageId)} from being deleted.`);
+        const message = `Throwing intentional error to prevent records ${recordsToNotDelete.map(r => r.messageId)} from being deleted.`;
+        log.info(message);
+        throw new Error(message);
     }
 }
 

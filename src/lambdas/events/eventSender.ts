@@ -4,7 +4,6 @@ import {Webhook} from "../../db/Webhook";
 import {getSignatures} from "./signatureUtils";
 import {MetricsLogger} from "../../utils/metricsLogger";
 import {postData} from "../../utils/httpUtils";
-import log = require("loglevel");
 
 export async function sendEvent(event: LightrailEvent): Promise<{ deliveredWebhookIds: string[], failedWebhookIds: string[] }> {
     if (!event.userId) {
@@ -15,7 +14,6 @@ export async function sendEvent(event: LightrailEvent): Promise<{ deliveredWebho
     }
 
     const webhooks: Webhook[] = await Webhook.list(event.userId, true);
-    log.info(`Processing event ${event.type}(id: ${JSON.stringify(event.id)}) for user ${event.userId}. Retrieved ${webhooks.length} webhooks. Ids: ${webhooks.map(webhook => webhook.id)}.`);
 
     const deliveredWebhookIds: string[] = event.deliveredWebhookIds ? Object.assign([], event.deliveredWebhookIds) : [];
     const webhooksToProcess = webhooks.filter(webhook => webhook.active && deliveredWebhookIds.indexOf(webhook.id) === -1);

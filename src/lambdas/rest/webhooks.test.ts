@@ -2,13 +2,12 @@ import * as testUtils from "../../utils/test/testUtils";
 import {defaultTestUser, generateId, resetDb} from "../../utils/test/testUtils";
 import * as chai from "chai";
 import * as cassava from "cassava";
-import {getSecretLastFour, Webhook, WebhookSecret} from "../../db/Webhook";
+import {getSecretLastFour, Webhook, webhookCreateSchema, WebhookSecret, webhookUpdateSchema} from "../../db/Webhook";
 import {installAuthedRestRoutes} from "./installAuthedRestRoutes";
 import {ParsedProxyResponse} from "../../utils/test/ParsedProxyResponse";
 import {TestUser} from "../../utils/test/TestUser";
 import {initializeSecretEncryptionKey} from "./webhookSecretUtils";
 import chaiExclude from "chai-exclude";
-import {webhookCreateSchema, webhookUpdateSchema} from "./webhooks";
 import {GiftbitRestError} from "giftbit-cassava-routes";
 
 chai.use(chaiExclude);
