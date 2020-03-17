@@ -3,6 +3,8 @@ import * as giftbitRoutes from "giftbit-cassava-routes";
 import * as cassava from "cassava";
 import {decryptSecret, encryptSecret, getNewWebhookSecret} from "../lambdas/rest/webhookSecretUtils";
 import {queryCountAll} from "dynameh/dist/queryHelper";
+import {pick} from "../utils/pick";
+import * as jsonschema from "jsonschema";
 
 export interface Webhook extends CreateWebhookParams {
     secrets?: WebhookSecret[];
@@ -38,6 +40,64 @@ interface DbWebhookSecret {
 }
 
 const WEBHOOK_SORT_KEY = "Webhooks/";
+
+export namespace DbWebhook {
+    export async function fromDbObject(o: DbWebhook, showSecret: boolean = false): Promise<Webhook> {
+        if (!o) {
+            return null;
+        }
+        const webhook: Webhook = {
+            id: o.id,
+            url: o.url,
+            secrets: o.secrets,
+            events: o.events,
+            active: o.active,
+            createdDate: o.createdDate,
+            updatedDate: o.updatedDate,
+            createdBy: o.createdBy,
+        };
+
+        if (showSecret) {
+            webhook.secrets = await Promise.all(o.encryptedSecrets.map(async (s) => ({
+                id: s.id,
+                secret: await decryptSecret(s.encryptedSecret),
+                createdDate: s.createdDate
+            })));
+        }
+
+        return webhook;
+    }
+
+    export async function toDbObject(userId: string, webhook: Webhook): Promise<DbWebhook> {
+        if (!webhook) {
+            return null;
+        }
+        return {
+            ...webhook,
+            encryptedSecrets: await Promise.all(webhook.secrets.map(async (s) => ({
+                id: s.id,
+                encryptedSecret: await encryptSecret(s.secret),
+                createdDate: s.createdDate
+            }))),
+            secrets: webhook.secrets.map(s => ({
+                id: s.id,
+                secret: getSecretLastFour(s.secret),
+                createdDate: s.createdDate
+            })),
+            userId: userId,
+            pk: getPK(userId),
+            sk: getSK(webhook.id)
+        };
+    }
+
+    export function getPK(userId: string): string {
+        return "Users/" + userId;
+    }
+
+    export function getSK(webhookEndpointId: string): string {
+        return WEBHOOK_SORT_KEY + webhookEndpointId;
+    }
+}
 
 /**
  * Internal API - Operations that can be called from other lambdas within this project.
@@ -129,71 +189,54 @@ export namespace Webhook {
         return false;
     }
 
-    export function validateUrl(url: string) {
+    export function validateUrl(url: string): void {
         if (url.slice(0, 5) !== "https") {
             throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.UNPROCESSABLE_ENTITY, `The url must be secure.`, "InsecureWebhookUrl");
         }
     }
 }
 
-export namespace DbWebhook {
-    export async function fromDbObject(o: DbWebhook, showSecret: boolean = false): Promise<Webhook> {
-        if (!o) {
-            return null;
-        }
-        const webhook: Webhook = {
-            id: o.id,
-            url: o.url,
-            secrets: o.secrets,
-            events: o.events,
-            active: o.active,
-            createdDate: o.createdDate,
-            updatedDate: o.updatedDate,
-            createdBy: o.createdBy,
-        };
-
-        if (showSecret) {
-            webhook.secrets = await Promise.all(o.encryptedSecrets.map(async (s) => ({
-                id: s.id,
-                secret: await decryptSecret(s.encryptedSecret),
-                createdDate: s.createdDate
-            })));
-        }
-
-        return webhook;
-    }
-
-    export async function toDbObject(userId: string, webhook: Webhook): Promise<DbWebhook> {
-        if (!webhook) {
-            return null;
-        }
-        return {
-            ...webhook,
-            encryptedSecrets: await Promise.all(webhook.secrets.map(async (s) => ({
-                id: s.id,
-                encryptedSecret: await encryptSecret(s.secret),
-                createdDate: s.createdDate
-            }))),
-            secrets: webhook.secrets.map(s => ({
-                id: s.id,
-                secret: getSecretLastFour(s.secret),
-                createdDate: s.createdDate
-            })),
-            userId: userId,
-            pk: getPK(userId),
-            sk: getSK(webhook.id)
-        };
-    }
-
-    export function getPK(userId: string): string {
-        return "Users/" + userId;
-    }
-
-    export function getSK(webhookEndpointId: string): string {
-        return WEBHOOK_SORT_KEY + webhookEndpointId;
-    }
-}
-
-export function getSecretLastFour(secret: string) {
+export function getSecretLastFour(secret: string): string {
     return "…" + Array.from(secret).slice(-4).join("");
 }
+
+
+export const webhookCreateSchema: jsonschema.Schema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+        id: {
+            type: "string",
+            maxLength: 64,
+            minLength: 1,
+            pattern: "^[ -~]*$"
+        },
+        url: {
+            type: "string",
+            format: "uri"
+        },
+        events: {
+            type: ["array"],
+            items: {
+                type: "string",
+                minLength: 1,
+                maxLength: 100
+            },
+            minItems: 1,
+            maxItems: 20
+        },
+        active: {
+            type: "boolean"
+        }
+    },
+    required: ["id", "url", "events"]
+};
+
+export const webhookUpdateSchema: jsonschema.Schema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+        ...pick(webhookCreateSchema.properties, "url", "events", "active"),
+    },
+    required: []
+};

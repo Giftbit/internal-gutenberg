@@ -5,7 +5,7 @@ describe("sqsUtils", function () {
 
     it("can get exponential backoff", () => {
         for (let receivedCount = 1; receivedCount < 20; receivedCount++) {
-            let max = Math.pow(2, receivedCount) * 15;
+            const max = Math.pow(2, receivedCount) * 15;
             for (let j = 0; j < 1; j++) {
                 const backoff = getBackoffTimeout(receivedCount);
                 chai.assert.isAtMost(backoff, max);

@@ -1,6 +1,5 @@
 import {CreateWebhookParams, DbWebhook, Webhook} from "./Webhook";
 import * as chai from "chai";
-import chaiExclude from "chai-exclude";
 import {generateId, resetDb} from "../utils/test/testUtils";
 import {decryptSecret, initializeSecretEncryptionKey} from "../lambdas/rest/webhookSecretUtils";
 

@@ -21,10 +21,10 @@ export function getNewWebhookSecret(): WebhookSecret {
     };
 }
 
-export function generateSecret() {
+export function generateSecret(): string {
     const ALPHANUMBERIC_CHARSET = Array.from("ABCDEFGHIJKLMNOPQRSTUBWXYZ123456789");
     const randomBytes = crypto.randomBytes(SECRET_LENGTH);
-    let randomString: string = "";
+    let randomString = "";
     for (let i = 0; i < SECRET_LENGTH; i++) {
         randomString += ALPHANUMBERIC_CHARSET[randomBytes[i] % ALPHANUMBERIC_CHARSET.length];
     }
@@ -55,6 +55,6 @@ function addCodebasePepperToSecret(secret: string): string {
     return secret + CODEBASE_ENCRYPTION_PEPPER;
 }
 
-function removeCodebasePepperFromDecryptedSecret(decryptedSecret: string) {
+function removeCodebasePepperFromDecryptedSecret(decryptedSecret: string): string {
     return decryptedSecret.replace(CODEBASE_ENCRYPTION_PEPPER, "");
 }

@@ -1,7 +1,7 @@
 import * as awslambda from "aws-lambda";
 import {LightrailEvent} from "./LightrailEvent";
 import * as chai from "chai";
-import {defaultTestUser, generateId} from "../../../utils/test/testUtils";
+import {defaultTestUser} from "../../../utils/test/testUtils";
 
 describe("LightrailEvent", () => {
 

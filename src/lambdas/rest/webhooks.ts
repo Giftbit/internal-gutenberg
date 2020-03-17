@@ -1,9 +1,7 @@
 import * as cassava from "cassava";
 import * as giftbitRoutes from "giftbit-cassava-routes";
-import {CreateWebhookParams, Webhook, WebhookSecret} from "../../db/Webhook";
+import {CreateWebhookParams, Webhook, webhookCreateSchema, WebhookSecret, webhookUpdateSchema} from "../../db/Webhook";
 import {getNewWebhookSecret} from "./webhookSecretUtils";
-import * as jsonschema from "jsonschema";
-import {pick} from "../../utils/pick";
 import list = Webhook.list;
 import validateUrl = Webhook.validateUrl;
 
@@ -64,9 +62,9 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireIds("teamMemberId");
 
             evt.validateBody(webhookUpdateSchema);
-            let webhookUpdates: Partial<Webhook> = evt.body;
+            const webhookUpdates: Partial<Webhook> = evt.body;
 
-            let webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true); // show secrets so that the update can properly save.
+            const webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true); // show secrets so that the update can properly save.
             const updatedWebhook = {...webhook, ...webhookUpdates};
             validateUrl(updatedWebhook.url);
             await Webhook.update(auth.userId, updatedWebhook);
@@ -83,7 +81,7 @@ export function installWebhookRest(router: cassava.Router): void {
             auth.requireScopes("lightrailV2:webhooks:update");
             auth.requireIds("teamMemberId");
 
-            let webhook = await Webhook.get(auth.userId, evt.pathParameters.id);
+            const webhook = await Webhook.get(auth.userId, evt.pathParameters.id);
             await Webhook.del(auth.userId, webhook);
             return {
                 statusCode: cassava.httpStatusCode.success.NO_CONTENT,
@@ -160,43 +158,3 @@ export function installWebhookRest(router: cassava.Router): void {
             };
         });
 }
-
-export const webhookCreateSchema: jsonschema.Schema = {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-        id: {
-            type: "string",
-            maxLength: 64,
-            minLength: 1,
-            pattern: "^[ -~]*$"
-        },
-        url: {
-            type: "string",
-            format: "uri"
-        },
-        events: {
-            type: ["array"],
-            items: {
-                type: "string",
-                minLength: 1,
-                maxLength: 100
-            },
-            minItems: 1,
-            maxItems: 20
-        },
-        active: {
-            type: "boolean"
-        }
-    },
-    required: ["id", "url", "events"]
-};
-
-export const webhookUpdateSchema: jsonschema.Schema = {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-        ...pick(webhookCreateSchema.properties, "url", "events", "active"),
-    },
-    required: []
-};

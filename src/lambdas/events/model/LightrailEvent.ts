@@ -91,6 +91,9 @@ export namespace LightrailEvent {
     }
 
     export function parseFromSQSRecord(record: awslambda.SQSRecord): LightrailEvent {
+        if (record.messageAttributes["datacontenttype"]?.stringValue !== "application/json") {
+            throw new Error("")
+        }
         try {
             return {
                 specVersion: record.messageAttributes["specversion"]?.stringValue,
