@@ -1,5 +1,4 @@
 import {getSignatures} from "./signatureUtils";
-import * as cryptojs from "crypto-js";
 import * as chai from "chai";
 
 describe("signatureUtils", () => {

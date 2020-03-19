@@ -53,7 +53,7 @@ describe("webhooks", function() {
         chai.assert.deepInclude(get.body, webhook);
     });
 
-    it("can't create a webhook if it already exists - 409", async () => {
+    it("can't create a webhook if the id is already in use- 409", async () => {
         const webhook: Partial<Webhook> = {
             id: generateId(),
             url: "https://www.example.com/hooks",
@@ -213,6 +213,16 @@ describe("webhooks", function() {
             chai.assert.deepEqual(get.body, initialSecret);
         });
 
+        it("can't get a secret with an id that doesn't exist", async () => {
+            const get = await testUtils.testAuthedRequest<WebhookSecret>(router, `/v2/webhooks/${webhook.id}/secrets/doesntExist`, "GET");
+            chai.assert.equal(get.statusCode, 404);
+        });
+
+        it("can't delete a secret with an id that doesn't exist", async () => {
+            const get = await testUtils.testAuthedRequest<WebhookSecret>(router, `/v2/webhooks/${webhook.id}/secrets/doesntExist`, "DELETE");
+            chai.assert.equal(get.statusCode, 404);
+        });
+
         it("can't delete a webhook's only secret", async () => {
             const del = await testUtils.testAuthedRequest<GiftbitRestError>(router, `/v2/webhooks/${webhook.id}/secrets/${initialSecret.id}`, "DELETE");
             chai.assert.equal(del.statusCode, 409);
@@ -263,7 +273,7 @@ describe("webhooks", function() {
 
         it("can delete a secret", async () => {
             const del = await testUtils.testAuthedRequest<{}>(router, `/v2/webhooks/${webhook.id}/secrets/${secondSecret.id}`, "DELETE");
-            chai.assert.equal(del.statusCode, 200);
+            chai.assert.equal(del.statusCode, 204);
 
             const list = await testUtils.testAuthedRequest<Webhook>(router, `/v2/webhooks/${webhook.id}`, "GET");
             chai.assert.equal(list.statusCode, 200);

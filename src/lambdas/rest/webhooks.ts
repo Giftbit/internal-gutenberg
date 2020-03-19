@@ -70,7 +70,7 @@ export function installWebhookRest(router: cassava.Router): void {
             await Webhook.update(auth.userId, updatedWebhook);
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
-                body: await Webhook.get(auth.userId, evt.pathParameters.id) // loo
+                body: await Webhook.get(auth.userId, evt.pathParameters.id) // look up the webhook again to obfuscate secrets.
             };
         });
 
@@ -128,7 +128,7 @@ export function installWebhookRest(router: cassava.Router): void {
                     body: webhookSecret
                 };
             } else {
-                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Secret with id ${secretId} does not exist.`);
+                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.NOT_FOUND, `Secret with id ${secretId} does not exist.`);
             }
 
         });
@@ -149,11 +149,11 @@ export function installWebhookRest(router: cassava.Router): void {
                 }
                 webhook.secrets = webhook.secrets.filter(s => s.id !== secretId);
             } else {
-                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Secret with id ${secretId} does not exist.`);
+                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.NOT_FOUND, `Secret with id ${secretId} does not exist.`);
             }
             await Webhook.update(auth.userId, webhook);
             return {
-                statusCode: cassava.httpStatusCode.success.OK,
+                statusCode: cassava.httpStatusCode.success.NO_CONTENT,
                 body: {}
             };
         });

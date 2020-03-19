@@ -1,4 +1,9 @@
-import {decryptSecret, encryptSecret, generateSecret, initializeSecretEncryptionKey} from "./webhookSecretUtils";
+import {
+    decryptSecret,
+    encryptSecret,
+    getNewWebhookSecret,
+    initializeSecretEncryptionKey
+} from "./webhookSecretUtils";
 import * as chai from "chai";
 
 describe("webhookSecretUtils", () => {
@@ -18,10 +23,10 @@ describe("webhookSecretUtils", () => {
     });
 
     it("can encrypt and decrypt", async () => {
-        const secret = generateSecret();
-        chai.assert.lengthOf(secret, 16);
+        const webhookSecret = getNewWebhookSecret();
+        chai.assert.lengthOf(webhookSecret.secret, 16);
 
-        const decrypted = await decryptSecret(await encryptSecret(secret));
-        chai.assert.equal(secret, decrypted);
+        const decrypted = await decryptSecret(await encryptSecret(webhookSecret.secret));
+        chai.assert.equal(webhookSecret.secret, decrypted);
     });
 });

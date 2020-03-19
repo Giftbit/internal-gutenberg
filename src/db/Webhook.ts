@@ -137,7 +137,7 @@ export namespace Webhook {
         };
         validateUrl(webhook.url);
 
-        const dbWebhookEndpoint: DbWebhook = await DbWebhook.toDbObject(userId, webhook as Webhook);
+        const dbWebhookEndpoint: DbWebhook = await DbWebhook.toDbObject(userId, webhook);
         const req = objectDynameh.requestBuilder.buildPutInput(dbWebhookEndpoint);
         objectDynameh.requestBuilder.addCondition(req, {
             attribute: "pk",
@@ -145,7 +145,7 @@ export namespace Webhook {
         });
         try {
             await dynamodb.putItem(req).promise();
-            return webhook as Webhook;
+            return webhook;
         } catch (e) {
             if (e.code === "ConditionalCheckFailedException") {
                 throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Webhook with id: ${webhook.id} already exists.`);

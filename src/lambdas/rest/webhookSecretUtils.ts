@@ -21,12 +21,12 @@ export function getNewWebhookSecret(): WebhookSecret {
     };
 }
 
-export function generateSecret(): string {
-    const ALPHANUMBERIC_CHARSET = Array.from("ABCDEFGHIJKLMNOPQRSTUBWXYZ123456789");
+function generateSecret(): string {
+    const ALPHANUMERIC_CHARSET = Array.from("ABCDEFGHIJKLMNOPQRSTUWXYZ123456789");
     const randomBytes = crypto.randomBytes(SECRET_LENGTH);
     let randomString = "";
     for (let i = 0; i < SECRET_LENGTH; i++) {
-        randomString += ALPHANUMBERIC_CHARSET[randomBytes[i] % ALPHANUMBERIC_CHARSET.length];
+        randomString += ALPHANUMERIC_CHARSET[randomBytes[i] % ALPHANUMERIC_CHARSET.length];
     }
     return randomString;
 }
