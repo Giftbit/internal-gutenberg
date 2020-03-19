@@ -1,4 +1,4 @@
-import * as cryptojs from "crypto-js";
+import * as crypto from "crypto";
 
 /**
  * Returns comma separated list.
@@ -6,6 +6,10 @@ import * as cryptojs from "crypto-js";
  * @param payload
  */
 export function getSignatures(secrets: string[], payload: object): string {
-    // payload should maybe be a JSON string?
-    return secrets.map(secret => cryptojs.SHA256(JSON.stringify(payload), secret)).join(",");
+    const payloadString = JSON.stringify(payload);
+
+    return secrets.map(secret => crypto
+        .createHmac('sha256', secret)
+        .update(payloadString)
+        .digest('hex')).join(",");
 }
