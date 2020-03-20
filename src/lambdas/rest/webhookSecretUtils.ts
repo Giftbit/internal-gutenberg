@@ -22,7 +22,7 @@ export function getNewWebhookSecret(): WebhookSecret {
 }
 
 function generateSecret(): string {
-    const ALPHANUMERIC_CHARSET = Array.from("ABCDEFGHIJKLMNOPQRSTUWXYZ123456789");
+    const ALPHANUMERIC_CHARSET = Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
     const randomBytes = crypto.randomBytes(SECRET_LENGTH);
     let randomString = "";
     for (let i = 0; i < SECRET_LENGTH; i++) {
