@@ -53,7 +53,6 @@ async function handleSqsMessages(evt: awslambda.SQSEvent, ctx: awslambda.Context
                 recordsToNotDelete.push(record);
 
             } else if (result.action === "REQUEUE") {
-
                 await SqsUtils.sendMessage(result.newMessage);
                 await SqsUtils.deleteMessage(record);
             }
@@ -73,6 +72,8 @@ async function handleSqsMessages(evt: awslambda.SQSEvent, ctx: awslambda.Context
         }
     }
     if (recordsToNotDelete.length > 0) {
+        // This lambda is triggered directly by SQS. If the lambda succeeds the messages will automatically be deleted.
+        // This error is thrown to prevent that automatic deletion so that the message will be processed again later.
         const message = `Throwing intentional error to prevent records ${recordsToNotDelete.map(r => r.messageId)} from being deleted.`;
         log.info(message);
         throw new Error(message);

@@ -1,4 +1,4 @@
-import {dynamodb, objectDynameh, queryAll} from "./dynamodb";
+import {dynamodb, objectDynameh} from "./dynamodb";
 import * as giftbitRoutes from "giftbit-cassava-routes";
 import * as cassava from "cassava";
 import {decryptSecret, encryptSecret, getNewWebhookSecret} from "../lambdas/rest/webhookSecretUtils";
@@ -116,7 +116,7 @@ export namespace Webhook {
 
     export async function list(userId: string, showSecrets: boolean = false): Promise<Webhook[]> {
         const req = objectDynameh.requestBuilder.buildQueryInput(DbWebhook.getPK(userId), "begins_with", WEBHOOK_SORT_KEY);
-        const dbObjects = await queryAll(req);
+        const dbObjects = await objectDynameh.queryHelper.queryAll(dynamodb, req);
         return Promise.all(dbObjects.map(o => DbWebhook.fromDbObject(o, showSecrets)));
     }
 

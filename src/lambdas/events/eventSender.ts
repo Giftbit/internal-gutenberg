@@ -4,10 +4,11 @@ import {Webhook} from "../../db/Webhook";
 import {getSignatures} from "./signatureUtils";
 import {MetricsLogger} from "../../utils/metricsLogger";
 import {postData} from "../../utils/httpUtils";
+import log = require("loglevel");
 
 export async function sendEvent(event: LightrailEvent): Promise<{ deliveredWebhookIds: string[], failedWebhookIds: string[] }> {
     if (!event.userId) {
-        throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a userid. It cannot be processed. Deleting message from queue.`);
+        throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a userId. It cannot be processed. Deleting message from queue.`);
     }
     if (!event.type) {
         throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a type. It cannot be processed. Deleting message from queue.`);
@@ -29,9 +30,9 @@ export async function sendEvent(event: LightrailEvent): Promise<{ deliveredWebho
             if (call.statusCode >= 200 && call.statusCode < 300) {
                 MetricsLogger.webhookCallSuccess(event.userId);
                 deliveredWebhookIds.push(webhook.id);
-
             } else {
                 MetricsLogger.webhookCallFailure(event.userId);
+                log.info(`Received non-2xx from webhook ${webhook.id}. Status code: ${call.statusCode}.`);
                 failedWebhookIds.push(webhook.id);
             }
         }

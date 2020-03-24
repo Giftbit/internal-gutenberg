@@ -51,10 +51,6 @@ export interface LightrailEvent {
 
     /**
      * The Lightrail userId of the user that generated the event (if any).
-     *
-     * Why not `userId`?  Per the CloudEvents spec: CloudEvents attribute names
-     * MUST consist of lower-case letters ('a' to 'z') or digits ('0' to '9') from
-     * the ASCII character set.
      */
     userId?: string;
 
@@ -92,7 +88,7 @@ export namespace LightrailEvent {
 
     export function parseFromSQSRecord(record: awslambda.SQSRecord): LightrailEvent {
         if (record.messageAttributes["datacontenttype"]?.stringValue !== "application/json") {
-            throw new Error("")
+            throw new Error(`SQS message property datacontenttype must be 'application/json'. Received ${record.messageAttributes["datacontenttype"]?.stringValue}.`)
         }
         try {
             return {
