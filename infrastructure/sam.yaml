@@ -212,14 +212,6 @@ Resources:
           Action:
           - kms:Decrypt
           - kms:DescribeKey
-          - kms:Encrypt
-          - kms:GenerateDataKey*
-          Resource:
-          - !Ref LightrailEventEncryptionKeyArn
-        - Effect: Allow
-          Action:
-          - kms:Decrypt
-          - kms:DescribeKey
           Resource:
           - !Ref SecureConfigKmsArn
           Condition:
