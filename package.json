@@ -1,0 +1,62 @@
+{
+  "name": "internal-gutenberg",
+  "version": "1.0.0",
+  "description": "Webhooks.",
+  "scripts": {
+    "build": "webpack",
+    "clean": "rimraf ./dist",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "npm run test:startdb; TEST_ENV=true AWS_REGION=us-west-2 WEBHOOK_TABLE=GutenbergTable EVENT_QUEUE=doesntmatterfortesting AWS_ACCESS_KEY_ID=AKID AWS_SECRET_ACCESS_KEY=SECRET mocha --recursive --throw-deprecation --require ts-node/register --require ./src/utils/test/setLogLevelSilent.ts --exit \"src/**/*.test.ts\"; npm run test:stopdb",
+    "test:debug": "npm run test:startdb; TEST_ENV=true AWS_REGION=us-west-2 WEBHOOK_TABLE=GutenbergTable mocha --recursive --throw-deprecation --require ts-node/register --require ./src/utils/test/setLogLevelDebug.ts --exit \"src/**/*.test.ts\"; npm run test:stopdb",
+    "test:startdb": "docker start gutenberg-test-db || (docker run --name gutenberg-test-db -p 8000:8000 amazon/dynamodb-local)",
+    "test:stopdb": "docker stop gutenberg-test-db"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Giftbit/sam-scaffold.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Giftbit/sam-scaffold/issues"
+  },
+  "homepage": "https://github.com/Giftbit/sam-scaffold#readme",
+  "dependencies": {
+    "@babel/core": "^7.8.7",
+    "@babel/preset-env": "^7.8.7",
+    "@types/aws-lambda": "^8.10.46",
+    "@types/chai": "^4.2.10",
+    "@types/crypto-js": "^3.1.43",
+    "@types/mocha": "^7.0.2",
+    "@types/node": "^13.9.1",
+    "@types/sinon": "^7.5.2",
+    "@types/uuid": "^7.0.0",
+    "@typescript-eslint/eslint-plugin": "^2.22.0",
+    "@typescript-eslint/parser": "^2.22.0",
+    "aws-sdk": "^2.639.0",
+    "babel-loader": "^8.0.6",
+    "cassava": "^2.5.2",
+    "chai": "^4.2.0",
+    "chai-exclude": "^2.0.2",
+    "crypto-js": "^4.0.0",
+    "dynameh": "^4.3.1",
+    "eslint": "^6.8.0",
+    "file-loader": "^5.1.0",
+    "giftbit-cassava-routes": "git+ssh://git@github.com/Giftbit/giftbit-cassava-routes.git#semver:^10.4.1",
+    "giftbit-lambda-metricslib": "git+ssh://git@github.com/Giftbit/giftbit-lambda-metricslib.git#semver:^3.0.0",
+    "json-loader": "^0.5.7",
+    "loglevel": "^1.6.7",
+    "loglevel-plugin-prefix": "^0.8.4",
+    "mocha": "^7.1.0",
+    "rimraf": "^3.0.2",
+    "sinon": "^9.0.1",
+    "ts-loader": "^6.2.1",
+    "ts-node": "^8.6.2",
+    "typescript": "^3.8.3",
+    "uuid": "^7.0.2",
+    "webpack": "^4.42.0",
+    "webpack-cli": "^3.3.11",
+    "zip-webpack-plugin": "^3.0.0"
+  }
+}
