@@ -118,6 +118,18 @@ describe("LightrailEvent", () => {
                     stringListValues: null,
                     binaryListValues: null,
                 },
+                userid: {
+                    dataType: "String",
+                    stringValue: "user-123",
+                    stringListValues: null,
+                    binaryListValues: null,
+                },
+                type: {
+                    dataType: "String",
+                    stringValue: "plane.created",
+                    stringListValues: null,
+                    binaryListValues: null,
+                }
             },
             md5OfBody: null,
             eventSource: null,
@@ -138,9 +150,15 @@ describe("LightrailEvent", () => {
             }),
             attributes: null,
             messageAttributes: {
-                datacontenttype: {
+                userid: {
                     dataType: "String",
-                    stringValue: "application/json",
+                    stringValue: "user-123",
+                    stringListValues: null,
+                    binaryListValues: null,
+                },
+                type: {
+                    dataType: "String",
+                    stringValue: "plane.created",
                     stringListValues: null,
                     binaryListValues: null,
                 },
@@ -151,10 +169,80 @@ describe("LightrailEvent", () => {
             awsRegion: null
         };
         try {
-            const lrEvent: LightrailEvent = LightrailEvent.parseFromSQSRecord(sqsRecord);
+            LightrailEvent.parseFromSQSRecord(sqsRecord);
             chai.assert.fail("This shouldn't happen, an error should be thrown.")
         } catch (e) {
-            // do nothing =)
+            chai.assert.equal(e.message, "SQS message property datacontenttype must be 'application/json'. Received undefined.")
+        }
+    });
+
+    it("can't parse record that doesn't have userid - throws error", () => {
+        const sqsRecord: awslambda.SQSRecord = {
+            messageId: "id",
+            receiptHandle: "handle",
+            body: JSON.stringify({
+                plane: "boeing"
+            }),
+            attributes: null,
+            messageAttributes: {
+                datacontenttype: {
+                    dataType: "String",
+                    stringValue: "application/json",
+                    stringListValues: null,
+                    binaryListValues: null,
+                },
+                type: {
+                    dataType: "String",
+                    stringValue: "plane.created",
+                    stringListValues: null,
+                    binaryListValues: null,
+                }
+            },
+            md5OfBody: null,
+            eventSource: null,
+            eventSourceARN: null,
+            awsRegion: null
+        };
+        try {
+            LightrailEvent.parseFromSQSRecord(sqsRecord);
+            chai.assert.fail("This shouldn't happen, an error should be thrown.")
+        } catch (e) {
+            chai.assert.equal(e.message, "SQS message property userid must be set.")
+        }
+    });
+
+    it("can't parse record that doesn't have type - throws error", () => {
+        const sqsRecord: awslambda.SQSRecord = {
+            messageId: "id",
+            receiptHandle: "handle",
+            body: JSON.stringify({
+                plane: "boeing"
+            }),
+            attributes: null,
+            messageAttributes: {
+                datacontenttype: {
+                    dataType: "String",
+                    stringValue: "application/json",
+                    stringListValues: null,
+                    binaryListValues: null,
+                },
+                userid: {
+                    dataType: "String",
+                    stringValue: "user-123",
+                    stringListValues: null,
+                    binaryListValues: null,
+                }
+            },
+            md5OfBody: null,
+            eventSource: null,
+            eventSourceARN: null,
+            awsRegion: null
+        };
+        try {
+            LightrailEvent.parseFromSQSRecord(sqsRecord);
+            chai.assert.fail("This shouldn't happen, an error should be thrown.")
+        } catch (e) {
+            chai.assert.equal(e.message, "SQS message property type must be set.")
         }
     });
 

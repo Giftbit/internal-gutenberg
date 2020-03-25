@@ -7,13 +7,6 @@ import {postData} from "../../utils/httpUtils";
 import log = require("loglevel");
 
 export async function sendEvent(event: LightrailEvent): Promise<{ deliveredWebhookIds: string[], failedWebhookIds: string[] }> {
-    if (!event.userId) {
-        throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a userId. It cannot be processed. Deleting message from queue.`);
-    }
-    if (!event.type) {
-        throw new DeleteMessageError(`Event ${JSON.stringify(event)} is missing a type. It cannot be processed. Deleting message from queue.`);
-    }
-
     const webhooks: Webhook[] = await Webhook.list(event.userId, true);
 
     const deliveredWebhookIds: string[] = event.deliveredWebhookIds ? Object.assign([], event.deliveredWebhookIds) : [];

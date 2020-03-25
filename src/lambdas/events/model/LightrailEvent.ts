@@ -3,8 +3,8 @@ import {SendMessageRequest} from "aws-sdk/clients/sqs";
 import {DeleteMessageError} from "../errors/DeleteMessageError";
 
 /**
- * Events that happened in the Lightrail system.  Multiple microservices
- * may generate events and multiple microservices may subscribe to them.
+ * Events that happen in the Lightrail system.
+ * Event properties are mostly set by event producers.
  */
 export interface LightrailEvent {
     /**
@@ -13,7 +13,7 @@ export interface LightrailEvent {
     specVersion: string;
 
     /**
-     * Dot-separated namespace of the event type.
+     * Event types are dot-separated namespace. They are set by event producers in Lightrail.
      * eg: `lightrail.transaction.created`
      */
     type: string;
@@ -35,20 +35,17 @@ export interface LightrailEvent {
     time: Date;
 
     /**
-     * The Lightrail userId of the user that generated the event (if any).
+     * The Lightrail userId. Webhooks require a userId.
      */
-    userId?: string;
+    userId: string;
 
     /**
-     * MIME type of the event data.  Currently we're only doing JSON payloads
-     * but there may be use cases for other in the future.
+     * MIME type of the event data. Currently only application/json is supported.
      */
-    dataContentType: string;
+    dataContentType: "application/json";
 
     /**
-     * The event body.  The shape is entirely dependent upon the type of the event.
-     * Breaking changes are a big deal and need to be coordinated.  Adding new properties
-     * is not a breaking change.
+     * The event body.
      */
     data: any;
 
@@ -75,6 +72,13 @@ export namespace LightrailEvent {
         if (record.messageAttributes["datacontenttype"]?.stringValue !== "application/json") {
             throw new Error(`SQS message property datacontenttype must be 'application/json'. Received ${record.messageAttributes["datacontenttype"]?.stringValue}.`)
         }
+        if (!record.messageAttributes["userid"]?.stringValue) {
+            throw new Error(`SQS message property userid must be set.`)
+        }
+        if (!record.messageAttributes["type"]?.stringValue) {
+            throw new Error(`SQS message property type must be set.`)
+        }
+
         try {
             return {
                 specVersion: record.messageAttributes["specversion"]?.stringValue,
