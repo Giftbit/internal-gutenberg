@@ -3,13 +3,12 @@ import * as cassava from "cassava";
 import {ParsedProxyResponse} from "./ParsedProxyResponse";
 import * as giftbitRoutes from "giftbit-cassava-routes";
 import {TestUser} from "./TestUser";
-import {QUEUE_URL, sqs} from "../../lambdas/events/sqsUtils";
+import {sqs} from "../sqsUtils";
 import log = require("loglevel");
-import uuid = require("uuid/v4");
+import * as uuid from "uuid";
 import SQS = require("aws-sdk/clients/sqs");
 
 const rolesConfig = require("./rolesConfig.json");
-
 
 if (!process.env["TEST_ENV"]) {
     log.error("Env var TEST_ENV is undefined.  This is not a test environment!");
@@ -19,8 +18,6 @@ if (!process.env["TEST_ENV"]) {
 export async function resetDb(): Promise<void> {
     log.trace("deleting existing tables");
     try {
-        // console.log(process.env["WEBHOOK_TABLE"]);
-        // console.log(JSON.stringify(objectDynameh, null, 4));
         await dynamodb.deleteTable(objectDynameh.requestBuilder.buildDeleteTableInput()).promise();
     } catch (err) {
         if (err.code !== "ResourceNotFoundException") {
@@ -33,7 +30,7 @@ export async function resetDb(): Promise<void> {
 }
 
 export function generateId(length?: number): string {
-    return (uuid() + uuid()).substring(0, length != null ? length : 20);
+    return (uuid.v4() + uuid.v4()).substring(0, length != null ? length : 20);
 }
 
 export const defaultTestUser = new TestUser({
@@ -54,15 +51,19 @@ export const authRoute: cassava.routes.Route = new giftbitRoutes.jwtauth.JwtAuth
     errorLogFunction: log.error
 });
 
-export async function clearQueue(): Promise<void> {
+export async function purgeQueue(): Promise<void> {
     try {
-        const res = await sqs.purgeQueue({QueueUrl: QUEUE_URL}).promise();
-        console.log("purged: " + JSON.stringify(res, null, 4));
+        const res = await sqs.purgeQueue({QueueUrl: process.env["EVENT_QUEUE"]}).promise();
+        log.debug("purged: " + JSON.stringify(res, null, 4));
     } catch (e) {
-        console.log(e);
+        log.debug(e);
     }
 }
 
-export async function pollSQS(): Promise<SQS.Types.ReceiveMessageResult> {
-    return await sqs.receiveMessage({QueueUrl: QUEUE_URL}).promise();
+export async function receiveMessage(): Promise<SQS.Types.ReceiveMessageResult> {
+    return await sqs.receiveMessage({
+        QueueUrl: process.env["EVENT_QUEUE"],
+        AttributeNames: ["All"],
+        MessageAttributeNames: ["All"]
+    }).promise();
 }

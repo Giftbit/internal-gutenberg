@@ -1,6 +1,14 @@
 import * as awslambda from "aws-lambda";
+import {SQSRecord} from "aws-lambda";
 import * as logPrefix from "loglevel-plugin-prefix";
-import {processSQSRecord} from "./eventProcessor";
+import * as giftbitRoutes from "giftbit-cassava-routes";
+import {GetSecretValueResponse} from "aws-sdk/clients/secretsmanager";
+import {initializeSecretEncryptionKey} from "../rest/webhookSecretUtils";
+import * as aws from "aws-sdk";
+import {SqsUtils} from "../../utils/sqsUtils";
+import {processEvent} from "./eventProcessor";
+import {LightrailEvent} from "./model/LightrailEvent";
+import {DeleteMessageError} from "./errors/DeleteMessageError";
 import log = require("loglevel");
 
 // Wrapping console.log instead of binding (default behaviour for loglevel)
@@ -16,36 +24,65 @@ logPrefix.reg(log);
 logPrefix.apply(log, {
     format: (level, name, timestamp) => {
         return `[${level}]`;
-    }
+    },
 });
 
-log.setLevel(process.env.LOG_LEVEL as any || log.levels.INFO);
+// Set the log level when running in Lambda.
+log.setLevel(log.levels.INFO);
+
+const secretsManager = new aws.SecretsManager();
+const secretEncryptionKey: Promise<GetSecretValueResponse> = secretsManager.getSecretValue({SecretId: process.env["SECRET_ENCRYPTION_KEY"]}).promise();
+initializeSecretEncryptionKey(secretEncryptionKey);
 
 /**
- * Uses SQS as a Trigger. Simply passes any SQS Messages onto the SQS Processor.
+ * Triggered by SQS.
  */
 async function handleSqsMessages(evt: awslambda.SQSEvent, ctx: awslambda.Context): Promise<any> {
-    for (const message of evt.Records) {
-        console.log(JSON.stringify(message, null, 4));
-        await processSQSRecord(message);
+    const recordsToNotDelete: SQSRecord[] = [];
+    for (const record of evt.Records) {
+        const sentTimestamp = parseInt(record.attributes.SentTimestamp);
+        try {
+            const event: LightrailEvent = LightrailEvent.parseFromSQSRecord(record);
+            const result = await processEvent(event, sentTimestamp);
+
+            if (result.action === "DELETE") {
+                await SqsUtils.deleteMessage(record);
+
+            } else if (result.action === "BACKOFF") {
+                await SqsUtils.backoffMessage(record);
+                recordsToNotDelete.push(record);
+
+            } else if (result.action === "REQUEUE") {
+                await SqsUtils.sendMessage(result.newMessage);
+                await SqsUtils.deleteMessage(record);
+            }
+        } catch (e) {
+            if (e instanceof DeleteMessageError) {
+                log.error(`DeleteMessageError thrown.`, e);
+                await SqsUtils.deleteMessage(record);
+            } else {
+                log.error(`An unexpected error occurred while processing event: ${JSON.stringify(e)}`);
+                // An unexpected error occurred. Will backoff to a maximum of 12 hours.
+                // Won't delete the message off the queue after 3 days because this represents
+                // an unexpected failure on our side. The message will be retried for up to 7 days
+                // (message retention period set on queue).
+                await SqsUtils.backoffMessage(record);
+                recordsToNotDelete.push(record);
+            }
+        }
+    }
+    if (recordsToNotDelete.length > 0) {
+        // This lambda is triggered directly by SQS. If the lambda succeeds the messages will automatically be deleted.
+        // This error is thrown to prevent that automatic deletion so that the message will be processed again later.
+        const message = `Throwing intentional error to prevent records ${recordsToNotDelete.map(r => r.messageId)} from being deleted.`;
+        log.info(message);
+        throw new Error(message);
     }
 }
 
-// exports.handler = async (event) => {
-//     //console.log('Received event:', JSON.stringify(event, null, 2));
-//     for (const {messageId, body} of event.Records) {
-//         console.log('SQS message %s: %j', messageId, body);
-//     }
-//     return `Successfully processed ${event.Records.length} messages.`;
-// };
-
 // Export the lambda handler with Sentry error logging supported.
-export const handler = handleSqsMessages;
-
-/* todo later
 export const handler = giftbitRoutes.sentry.wrapLambdaHandler({
-    handler: handleScheduleEvent,
+    handler: handleSqsMessages,
     logger: log.error,
     secureConfig: giftbitRoutes.secureConfig.fetchFromS3ByEnvVar<any>("SECURE_CONFIG_BUCKET", "SECURE_CONFIG_KEY_SENTRY")
 });
-*/

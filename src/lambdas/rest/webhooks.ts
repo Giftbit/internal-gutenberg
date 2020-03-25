@@ -1,8 +1,9 @@
 import * as cassava from "cassava";
 import * as giftbitRoutes from "giftbit-cassava-routes";
-import {Webhook} from "../../db/Webhook";
-import {generateSecret} from "./webhookSecretUtils";
+import {CreateWebhookParams, Webhook, webhookCreateSchema, WebhookSecret, webhookUpdateSchema} from "../../db/Webhook";
+import {getNewWebhookSecret} from "./webhookSecretUtils";
 import list = Webhook.list;
+import validateUrl = Webhook.validateUrl;
 
 export function installWebhookRest(router: cassava.Router): void {
 
@@ -12,11 +13,10 @@ export function installWebhookRest(router: cassava.Router): void {
             const auth: giftbitRoutes.jwtauth.AuthorizationBadge = evt.meta["auth"];
             auth.requireScopes("lightrailV2:webhooks:list");
             auth.requireIds("teamMemberId");
-            const showSecret: boolean = (evt.queryStringParameters.showSecret === "true");
 
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
-                body: await list(auth.userId, showSecret)
+                body: (await list(auth.userId)).sort((a, b) => new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime())
             };
         });
 
@@ -24,12 +24,17 @@ export function installWebhookRest(router: cassava.Router): void {
         .method("POST")
         .handler(async evt => {
             const auth: giftbitRoutes.jwtauth.AuthorizationBadge = evt.meta["auth"];
-            auth.requireScopes("lightrailV2:webhooks");
+            auth.requireScopes("lightrailV2:webhooks:create");
             auth.requireIds("teamMemberId");
+            evt.validateBody(webhookCreateSchema);
+            const createWebhookParams: CreateWebhookParams = evt.body;
 
-            // todo - json schema validation
+            const webhookCount = await Webhook.count(auth.userId);
+            if (webhookCount >= 20) {
+                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `You cannot have more than 20 webhooks. Please delete an existing webhook before creating a new one.`, "TooManyWebhooks");
+            }
 
-            const webhook = await Webhook.create(auth.userId, auth.teamMemberId, evt.body);
+            const webhook = await Webhook.create(auth.userId, auth.teamMemberId, createWebhookParams);
             return {
                 statusCode: cassava.httpStatusCode.success.CREATED,
                 body: webhook
@@ -42,11 +47,10 @@ export function installWebhookRest(router: cassava.Router): void {
             const auth: giftbitRoutes.jwtauth.AuthorizationBadge = evt.meta["auth"];
             auth.requireScopes("lightrailV2:webhooks:get");
             auth.requireIds("teamMemberId");
-            const showSecret: boolean = (evt.queryStringParameters.showSecret === "true");
 
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
-                body: await Webhook.get(auth.userId, evt.pathParameters.id, showSecret)
+                body: await Webhook.get(auth.userId, evt.pathParameters.id)
             };
         });
 
@@ -54,18 +58,34 @@ export function installWebhookRest(router: cassava.Router): void {
         .method("PATCH")
         .handler(async evt => {
             const auth: giftbitRoutes.jwtauth.AuthorizationBadge = evt.meta["auth"];
-            auth.requireScopes("lightrailV2:webhooks:get");
+            auth.requireScopes("lightrailV2:webhooks:update");
             auth.requireIds("teamMemberId");
 
-            let webhookUpdates: Partial<Webhook> = evt.body;
-            // todo - json schema validation
+            evt.validateBody(webhookUpdateSchema);
+            const webhookUpdates: Partial<Webhook> = evt.body;
 
-            const webhook = await Webhook.get(auth.userId, evt.pathParameters.id);
+            const webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true); // show secrets so that the update can properly save.
             const updatedWebhook = {...webhook, ...webhookUpdates};
+            validateUrl(updatedWebhook.url);
             await Webhook.update(auth.userId, updatedWebhook);
             return {
                 statusCode: cassava.httpStatusCode.success.OK,
-                body: updatedWebhook
+                body: await Webhook.get(auth.userId, evt.pathParameters.id) // look up the webhook again to obfuscate secrets.
+            };
+        });
+
+    router.route("/v2/webhooks/{id}")
+        .method("DELETE")
+        .handler(async evt => {
+            const auth: giftbitRoutes.jwtauth.AuthorizationBadge = evt.meta["auth"];
+            auth.requireScopes("lightrailV2:webhooks:update");
+            auth.requireIds("teamMemberId");
+
+            const webhook = await Webhook.get(auth.userId, evt.pathParameters.id);
+            await Webhook.del(auth.userId, webhook);
+            return {
+                statusCode: cassava.httpStatusCode.success.NO_CONTENT,
+                body: {}
             };
         });
 
@@ -73,35 +93,68 @@ export function installWebhookRest(router: cassava.Router): void {
         .method("POST")
         .handler(async evt => {
             const auth: giftbitRoutes.jwtauth.AuthorizationBadge = evt.meta["auth"];
-            auth.requireScopes("lightrailV2:webhooks:get");
+            auth.requireScopes("lightrailV2:webhooks:secrets:create");
             auth.requireIds("teamMemberId");
 
             const webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true);
-            webhook.secrets.push(generateSecret());
+            if (webhook.secrets.length === 3) {
+                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `A webhook cannot have more than 3 secrets.`, "TooManySecrets");
+            }
+
+            const secret: WebhookSecret = getNewWebhookSecret();
+            webhook.secrets.push(secret);
 
             await Webhook.update(auth.userId, webhook);
             return {
                 statusCode: cassava.httpStatusCode.success.CREATED,
-                body: webhook
+                body: secret
             };
         });
 
-    router.route("/v2/webhooks/{id}/secrets/{secret}")
-        .method("DELETE")
+    router.route("/v2/webhooks/{id}/secrets/{secretId}")
+        .method("GET")
         .handler(async evt => {
             const auth: giftbitRoutes.jwtauth.AuthorizationBadge = evt.meta["auth"];
-            auth.requireScopes("lightrailV2:webhooks:get");
+            auth.requireScopes("lightrailV2:webhooks:secrets:get");
             auth.requireIds("teamMemberId");
 
             const webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true);
-            if (webhook.secrets.find(s => s === evt.pathParameters.secret)) {
-                webhook.secrets = webhook.secrets.filter(s => s !== evt.pathParameters.secret);
+
+            const secretId = evt.pathParameters.secretId;
+            const webhookSecret: WebhookSecret = webhook.secrets.find(s => s.id === secretId);
+            if (webhookSecret) {
+                return {
+                    statusCode: cassava.httpStatusCode.success.OK,
+                    body: webhookSecret
+                };
             } else {
-                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Webhook with id: ${webhook.id} already exists.`);
+                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.NOT_FOUND, `Secret with id ${secretId} does not exist.`);
             }
+
+        });
+
+    router.route("/v2/webhooks/{id}/secrets/{secretId}")
+        .method("DELETE")
+        .handler(async evt => {
+            const auth: giftbitRoutes.jwtauth.AuthorizationBadge = evt.meta["auth"];
+            auth.requireScopes("lightrailV2:webhooks:secrets:delete");
+            auth.requireIds("teamMemberId");
+
+            const webhook = await Webhook.get(auth.userId, evt.pathParameters.id, true);
+
+            const secretId = evt.pathParameters.secretId;
+            if (webhook.secrets.find(s => s.id === secretId)) {
+                if (webhook.secrets.length === 1) {
+                    throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `A webhook must have at least 1 secret.`, "TooFewSecrets");
+                }
+                webhook.secrets = webhook.secrets.filter(s => s.id !== secretId);
+            } else {
+                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.NOT_FOUND, `Secret with id ${secretId} does not exist.`);
+            }
+            await Webhook.update(auth.userId, webhook);
             return {
-                statusCode: cassava.httpStatusCode.success.OK,
-                body: webhook
+                statusCode: cassava.httpStatusCode.success.NO_CONTENT,
+                body: {}
             };
         });
 }
