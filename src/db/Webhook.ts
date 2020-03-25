@@ -1,17 +1,23 @@
-import {dynamodb, objectDynameh, queryAll} from "./dynamodb";
+import {dynamodb, objectDynameh} from "./dynamodb";
 import * as giftbitRoutes from "giftbit-cassava-routes";
 import * as cassava from "cassava";
 import {decryptSecret, encryptSecret, getNewWebhookSecret} from "../lambdas/rest/webhookSecretUtils";
+import {queryCountAll} from "dynameh/dist/queryHelper";
+import {pick} from "../utils/pick";
+import * as jsonschema from "jsonschema";
 
-export interface Webhook {
+export interface Webhook extends CreateWebhookParams {
+    secrets?: WebhookSecret[];
+    createdDate: Date;
+    updatedDate: Date;
+    createdBy: string;
+}
+
+export interface CreateWebhookParams {
     id: string;
     url: string;
-    secrets?: WebhookSecret[];
     events: string[];
     active: boolean;
-    createdDate: string;
-    updatedDate: string;
-    createdBy: string;
 }
 
 interface DbWebhook extends Webhook {
@@ -30,108 +36,17 @@ export interface WebhookSecret {
 interface DbWebhookSecret {
     id: string;
     encryptedSecret: string;
-    createdDate: string
+    createdDate: string;
 }
 
 const WEBHOOK_SORT_KEY = "Webhooks/";
 
-/**
- * Internal API - Operations that can be called from other lambdas within this project.
- */
-export namespace Webhook {
-
-    export async function get(userId: string, id: string, showSecrets: boolean = false): Promise<Webhook> {
-        const req = objectDynameh.requestBuilder.buildGetInput(DbWebhook.getPK(userId), DbWebhook.getSK(id));
-        const resp = await dynamodb.getItem(req).promise();
-        const dbWebhookEndpoint = objectDynameh.responseUnwrapper.unwrapGetOutput(resp) as DbWebhook;
-        if (!dbWebhookEndpoint) {
-            throw new giftbitRoutes.GiftbitRestError(404, `Webhook with id '${id}' not found.`, "WebhookNotFound");
-        }
-        return DbWebhook.fromDbObject(dbWebhookEndpoint, showSecrets);
-    }
-
-    export async function list(userId: string, showSecrets: boolean = false): Promise<Webhook[]> {
-        const req = objectDynameh.requestBuilder.buildQueryInput(DbWebhook.getPK(userId), "begins_with", WEBHOOK_SORT_KEY);
-        const dbObjects = await queryAll(req);
-        return Promise.all(dbObjects.map(o => DbWebhook.fromDbObject(o, showSecrets)));
-    }
-
-    export async function create(userId: string, teamMemberId: string, webhook: Webhook): Promise<Webhook> {
-        webhook.createdDate = new Date().toISOString();
-        webhook.updatedDate = webhook.createdDate;
-        webhook.secrets = [getNewWebhookSecret()];
-        webhook.createdBy = teamMemberId;
-        webhook.active = webhook.active != null ? webhook.active : true;
-
-        const dbWebhookEndpoint: DbWebhook = await DbWebhook.toDbObject(userId, webhook);
-        const req = objectDynameh.requestBuilder.buildPutInput(dbWebhookEndpoint);
-        objectDynameh.requestBuilder.addCondition(req, {
-            attribute: "pk",
-            operator: "attribute_not_exists"
-        });
-        try {
-            await dynamodb.putItem(req).promise();
-            return webhook;
-        } catch (e) {
-            if (e.code === "ConditionalCheckFailedException") {
-                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Webhook with id: ${webhook.id} already exists.`);
-            } else {
-                throw e;
-            }
-        }
-    }
-
-    export async function update(userId: string, webhook: Webhook): Promise<any> {
-        webhook.updatedDate = new Date().toISOString();
-
-        const dbWebhookEndpoint: Webhook = await DbWebhook.toDbObject(userId, webhook);
-        const req = objectDynameh.requestBuilder.buildPutInput(dbWebhookEndpoint);
-        const resp = await dynamodb.putItem(req).promise();
-
-        return objectDynameh.responseUnwrapper.unwrapGetOutput(resp);
-    }
-
-    export async function del(userId: string, webhook: Webhook): Promise<any> {
-        webhook.updatedDate = new Date().toISOString();
-
-        const dbWebhookEndpoint: Webhook = await DbWebhook.toDbObject(userId, webhook);
-        const req = objectDynameh.requestBuilder.buildDeleteInput(dbWebhookEndpoint);
-        const resp = await dynamodb.deleteItem(req).promise();
-
-        return objectDynameh.responseUnwrapper.unwrapGetOutput(resp);
-    }
-
-    export function matchesEvent(eventSubscriptions: string[], eventType: string): boolean {
-        for (const eventSubscription of eventSubscriptions) {
-            if (eventSubscription === "*") {
-                return true;
-            } else if (eventSubscription.length >= 2 && eventSubscription.slice(-2) === ".*") {
-                const lengthToCheck = eventSubscription.length - 2;
-                return eventSubscription.slice(0, lengthToCheck) === eventType.slice(0, lengthToCheck);
-            } else {
-                if (eventSubscription === eventType) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    // obfuscates any secrets that are in full
-    export function toStringSafe(webhook: Webhook): string {
-        return JSON.stringify({
-            ...webhook,
-            secrets: webhook.secrets.map(secret => ({...secret, secret: getSecretLastFour(secret.secret)}))
-        })
-    }
-}
-
-namespace DbWebhook {
+export namespace DbWebhook {
     export async function fromDbObject(o: DbWebhook, showSecret: boolean = false): Promise<Webhook> {
         if (!o) {
             return null;
         }
-        const webhook = {
+        const webhook: Webhook = {
             id: o.id,
             url: o.url,
             secrets: o.secrets,
@@ -150,7 +65,7 @@ namespace DbWebhook {
             })));
         }
 
-        return webhook as Webhook;
+        return webhook;
     }
 
     export async function toDbObject(userId: string, webhook: Webhook): Promise<DbWebhook> {
@@ -184,6 +99,144 @@ namespace DbWebhook {
     }
 }
 
-export function getSecretLastFour(secret: string) {
+/**
+ * Internal API - Operations that can be called from other lambdas within this project.
+ */
+export namespace Webhook {
+
+    export async function get(userId: string, id: string, showSecrets: boolean = false): Promise<Webhook> {
+        const req = objectDynameh.requestBuilder.buildGetInput(DbWebhook.getPK(userId), DbWebhook.getSK(id));
+        const resp = await dynamodb.getItem(req).promise();
+        const dbWebhookEndpoint = objectDynameh.responseUnwrapper.unwrapGetOutput(resp) as DbWebhook;
+        if (!dbWebhookEndpoint) {
+            throw new giftbitRoutes.GiftbitRestError(404, `Webhook with id '${id}' not found.`, "WebhookNotFound");
+        }
+        return DbWebhook.fromDbObject(dbWebhookEndpoint, showSecrets);
+    }
+
+    export async function list(userId: string, showSecrets: boolean = false): Promise<Webhook[]> {
+        const req = objectDynameh.requestBuilder.buildQueryInput(DbWebhook.getPK(userId), "begins_with", WEBHOOK_SORT_KEY);
+        const dbObjects = await objectDynameh.queryHelper.queryAll(dynamodb, req);
+        return Promise.all(dbObjects.map(o => DbWebhook.fromDbObject(o, showSecrets)));
+    }
+
+    export async function count(userId: string): Promise<number> {
+        const req = objectDynameh.requestBuilder.buildQueryInput(DbWebhook.getPK(userId), "begins_with", WEBHOOK_SORT_KEY);
+        return await queryCountAll(dynamodb, req);
+    }
+
+    export async function create(userId: string, teamMemberId: string, createWebhookParams: CreateWebhookParams): Promise<Webhook> {
+        const now = new Date();
+        const webhook: Webhook = {
+            ...createWebhookParams,
+            createdDate: now,
+            updatedDate: now,
+            secrets: [getNewWebhookSecret()],
+            createdBy: teamMemberId,
+            active: createWebhookParams.active != null ? createWebhookParams.active : true
+        };
+        validateUrl(webhook.url);
+
+        const dbWebhookEndpoint: DbWebhook = await DbWebhook.toDbObject(userId, webhook);
+        const req = objectDynameh.requestBuilder.buildPutInput(dbWebhookEndpoint);
+        objectDynameh.requestBuilder.addCondition(req, {
+            attribute: "pk",
+            operator: "attribute_not_exists"
+        });
+        try {
+            await dynamodb.putItem(req).promise();
+            return webhook;
+        } catch (e) {
+            if (e.code === "ConditionalCheckFailedException") {
+                throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.CONFLICT, `Webhook with id: ${webhook.id} already exists.`);
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    export async function update(userId: string, webhook: Webhook): Promise<any> {
+        webhook.updatedDate = new Date();
+
+        const dbWebhookEndpoint: Webhook = await DbWebhook.toDbObject(userId, webhook);
+        const req = objectDynameh.requestBuilder.buildPutInput(dbWebhookEndpoint);
+        const resp = await dynamodb.putItem(req).promise();
+
+        return objectDynameh.responseUnwrapper.unwrapGetOutput(resp);
+    }
+
+    export async function del(userId: string, webhook: Webhook): Promise<any> {
+        const dbWebhookEndpoint: Webhook = await DbWebhook.toDbObject(userId, webhook);
+        const req = objectDynameh.requestBuilder.buildDeleteInput(dbWebhookEndpoint);
+        const resp = await dynamodb.deleteItem(req).promise();
+
+        return objectDynameh.responseUnwrapper.unwrapGetOutput(resp);
+    }
+
+    export function matchesEvent(eventSubscriptions: string[], eventType: string): boolean {
+        for (const eventSubscription of eventSubscriptions) {
+            if (eventSubscription === "*") {
+                return true;
+            } else if (eventSubscription.length >= 2 && eventSubscription.slice(-2) === ".*") {
+                const lengthToCheck = eventSubscription.length - 2;
+                return eventSubscription.slice(0, lengthToCheck) === eventType.slice(0, lengthToCheck);
+            } else {
+                if (eventSubscription === eventType) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    export function validateUrl(url: string): void {
+        if (url.slice(0, 5) !== "https") {
+            throw new giftbitRoutes.GiftbitRestError(cassava.httpStatusCode.clientError.UNPROCESSABLE_ENTITY, `The url must be secure.`, "InsecureWebhookUrl");
+        }
+    }
+}
+
+export function getSecretLastFour(secret: string): string {
     return "…" + Array.from(secret).slice(-4).join("");
 }
+
+
+export const webhookCreateSchema: jsonschema.Schema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+        id: {
+            type: "string",
+            maxLength: 64,
+            minLength: 1,
+            pattern: "^[ -~]*$"
+        },
+        url: {
+            type: "string",
+            format: "uri"
+        },
+        events: {
+            type: ["array"],
+            items: {
+                type: "string",
+                minLength: 1,
+                maxLength: 100
+            },
+            minItems: 1,
+            maxItems: 20
+        },
+        active: {
+            type: "boolean"
+        }
+    },
+    required: ["id", "url", "events"]
+};
+
+export const webhookUpdateSchema: jsonschema.Schema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+        ...pick(webhookCreateSchema.properties, "url", "events", "active"),
+    },
+    required: []
+};

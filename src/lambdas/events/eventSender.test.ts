@@ -8,17 +8,17 @@ import * as httpUtils from "../../utils/httpUtils";
 import {installAuthedRestRoutes} from "../rest/installAuthedRestRoutes";
 import * as sinon from "sinon";
 import {LightrailEvent} from "./model/LightrailEvent";
-import {dispatch} from "./webhookDispatcher";
+import {sendEvent} from "./eventSender";
 
-describe("webhookDispatcher", () => {
-
+describe("eventSender", function() {
+    this.timeout(5000);
     const router = new cassava.Router();
     const sinonSandbox = sinon.createSandbox();
 
     before(async function () {
         const reset = resetDb();
         router.route(testUtils.authRoute);
-        initializeSecretEncryptionKey(Promise.resolve(Promise.resolve({SecretString: "secret"})));
+        initializeSecretEncryptionKey(Promise.resolve({SecretString: "secret"}));
         installAuthedRestRoutes(router);
         await reset;
     });
@@ -27,7 +27,7 @@ describe("webhookDispatcher", () => {
         sinonSandbox.restore();
     });
 
-    describe("dispatch", () => {
+    describe("sendEvent", () => {
         it("can process event where user has no webhooks", async () => {
             const event: LightrailEvent = {
                 specVersion: "1.0",
@@ -45,7 +45,7 @@ describe("webhookDispatcher", () => {
             };
 
 
-            const res = await dispatch(event);
+            const res = await sendEvent(event);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.isEmpty(res.deliveredWebhookIds);
         });
@@ -84,7 +84,7 @@ describe("webhookDispatcher", () => {
                 }
             };
 
-            const res = await dispatch(event);
+            const res = await sendEvent(event);
             chai.assert.sameMembers(res.deliveredWebhookIds, [webhook.id]);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.isNotNull(callbackStub.firstCall);
@@ -135,7 +135,7 @@ describe("webhookDispatcher", () => {
                 }
             };
 
-            const res = await dispatch(event);
+            const res = await sendEvent(event);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.sameMembers(res.deliveredWebhookIds, [webhook.id, create2.body.id]);
             chai.assert.isNotNull(callbackStub.secondCall);
@@ -176,13 +176,13 @@ describe("webhookDispatcher", () => {
                 }
             };
 
-            const res = await dispatch(event);
+            const res = await sendEvent(event);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.isEmpty(res.deliveredWebhookIds);
             chai.assert.isNull(callbackStub.firstCall);
         });
 
-        it("deactivated webhooks are skipped - no calls to make", async () => {
+        it("can process event, deactivated webhooks are skipped - no calls to make", async () => {
             sinonSandbox.restore();
             await resetDb();
             const webhook: Partial<Webhook> = {
@@ -216,13 +216,13 @@ describe("webhookDispatcher", () => {
                 }
             };
 
-            const res = await dispatch(event);
+            const res = await sendEvent(event);
             chai.assert.isEmpty(res.failedWebhookIds);
             chai.assert.isEmpty(res.deliveredWebhookIds);
             chai.assert.isNull(callbackStub.firstCall);
         });
 
-        it("one matching webhook but call returns non-2xx - returns 1 failed webhook id", async () => {
+        it("can process event with one matching webhook but call returns non-2xx - returns 1 failed webhook id", async () => {
             sinonSandbox.restore();
             await resetDb();
             const webhook: Partial<Webhook> = {
@@ -256,7 +256,7 @@ describe("webhookDispatcher", () => {
                 }
             };
 
-            const res = await dispatch(event);
+            const res = await sendEvent(event);
             chai.assert.sameMembers(res.failedWebhookIds, [webhook.id]);
             chai.assert.isEmpty(res.deliveredWebhookIds);
             chai.assert.isNotNull(callbackStub.firstCall);
@@ -264,7 +264,7 @@ describe("webhookDispatcher", () => {
             sinonSandbox.restore();
         });
 
-        it("doesn't re-call already delivered webhookIds - call to second webhook again fails", async () => {
+        it("can process event with two matching webhooks, doesn't re-call already delivered webhookIds - call to second webhook again fails", async () => {
             sinonSandbox.restore();
             await resetDb();
             const webhook: Partial<Webhook> = {
@@ -304,7 +304,7 @@ describe("webhookDispatcher", () => {
                 deliveredWebhookIds: [webhook.id]
             };
 
-            const res = await dispatch(event);
+            const res = await sendEvent(event);
             chai.assert.sameMembers(res.failedWebhookIds, [create2.body.id]);
             chai.assert.sameMembers(res.deliveredWebhookIds, [webhook.id]);
             chai.assert.isNotNull(callbackStub.firstCall);
