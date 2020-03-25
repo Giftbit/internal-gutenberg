@@ -316,17 +316,6 @@ Resources:
           Action:
           - application-autoscaling:*
           Resource: "*"
-        # S3
-        #          - Effect: Allow
-        #            Action:
-        #              - s3:CreateBucket
-        #              - s3:GetBucketAcl
-        #              - s3:GetBucketNotification
-        #              - s3:GetBucketTagging
-        #              - s3:PutBucketAcl
-        #              - s3:PutBucketNotification
-        #              - s3:PutBucketTagging
-        #            Resource: "*"
         # SQS
         - Effect: Allow
           Action:
@@ -352,11 +341,6 @@ Resources:
           - secretsmanager:PutResourcePolicy
           - secretsmanager:TagResource
           Resource: "*" # This action does not support resource-level permissions. Policies granting access must specify "*" in the resource element.
-        # ElasticsearchService
-  #          - Effect: Allow
-  #            Action:
-  #              - es:*
-  #            Resource: "*"
   CodePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:

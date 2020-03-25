@@ -1,22 +1,20 @@
 import {getSignatures} from "./signatureUtils";
-import * as cryptojs from "crypto-js";
 import * as chai from "chai";
 
 describe("signatureUtils", () => {
-    it("test generate single signature", () => {
+    it("can generate single signature", () => {
         const secret = "secret123";
         const payload = {test: "test"};
 
         const signatures = getSignatures([secret], payload);
-        chai.assert.equal(cryptojs.SHA256(JSON.stringify(payload), secret).toString(), signatures);
-        chai.assert.equal(signatures, "3e80b3778b3b03766e7be993131c0af2ad05630c5d96fb7fa132d05b77336e04", "hard coded signature to match secret and payload");
+        chai.assert.equal(signatures, "d7bcdc650a61dfb2c28e27ccce2454a56877680f4f06f1270a764f8bacfcc161", "hard coded signature to match secret and payload");
     });
 
-    it("test generate two signatures", () => {
+    it("can generate two signatures", () => {
         const secrets = ["sec1", "sec2"];
         const payload = {test: "test"};
 
         const signatures = getSignatures(secrets, payload);
-        chai.assert.equal(signatures, "3e80b3778b3b03766e7be993131c0af2ad05630c5d96fb7fa132d05b77336e04,3e80b3778b3b03766e7be993131c0af2ad05630c5d96fb7fa132d05b77336e04", "hard coded signatures to match secrets and payload")
+        chai.assert.equal(signatures, "88814fb985a5a25dd9ada9e7eee01618b6de5e04a7c8021dcdc7183fe98ed55d,e14e7e9f827bf7ec8882b041fbe8154781a0047b770ea89b6082d3d2412ba749", "hard coded signatures to match secrets and payload");
     });
 });

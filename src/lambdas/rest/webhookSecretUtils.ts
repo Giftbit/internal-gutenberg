@@ -2,7 +2,7 @@ import * as crypto from "crypto";
 import * as cryptojs from "crypto-js";
 import {GetSecretValueResponse} from "aws-sdk/clients/secretsmanager";
 import {WebhookSecret} from "../../db/Webhook";
-import uuid = require("uuid");
+import * as uuid from "uuid";
 
 const CODEBASE_ENCRYPTION_PEPPER = "yRPB2lp1dlOPCRn94N8FuCPFLb4hyNzrsA";
 const SECRET_LENGTH = 16;
@@ -21,12 +21,12 @@ export function getNewWebhookSecret(): WebhookSecret {
     };
 }
 
-export function generateSecret() {
-    const ALPHANUMBERIC_CHARSET = Array.from("ABCDEFGHIJKLMNOPQRSTUBWXYZ123456789");
+function generateSecret(): string {
+    const ALPHANUMERIC_CHARSET = Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
     const randomBytes = crypto.randomBytes(SECRET_LENGTH);
-    let randomString: string = "";
+    let randomString = "";
     for (let i = 0; i < SECRET_LENGTH; i++) {
-        randomString += ALPHANUMBERIC_CHARSET[randomBytes[i] % ALPHANUMBERIC_CHARSET.length];
+        randomString += ALPHANUMERIC_CHARSET[randomBytes[i] % ALPHANUMERIC_CHARSET.length];
     }
     return randomString;
 }
@@ -55,6 +55,6 @@ function addCodebasePepperToSecret(secret: string): string {
     return secret + CODEBASE_ENCRYPTION_PEPPER;
 }
 
-function removeCodebasePepperFromDecryptedSecret(decryptedSecret: string) {
+function removeCodebasePepperFromDecryptedSecret(decryptedSecret: string): string {
     return decryptedSecret.replace(CODEBASE_ENCRYPTION_PEPPER, "");
 }

@@ -1,18 +1,28 @@
 import log = require("loglevel");
 
+/**
+ * Legal types of metrics: https://docs.datadoghq.com/integrations/amazon_lambda/#using-cloudwatch-logs
+ */
+enum MetricsType {
+    Histogram = "histogram",
+    Count = "count",
+    Gauge = "gauge",
+    Check = "check"
+}
+
 export namespace MetricsLogger {
 
     /**
      * Received a 200 response from a webhook call.
      */
-    export function webhookCallSuccess(userId: string) {
+    export function webhookCallSuccess(userId: string): void {
         logMetric(1, MetricsType.Histogram, `gutenberg.webhook.call.success`, {}, userId);
     }
 
     /**
      * Received a non-200 response from a webhook.
      */
-    export function webhookCallFailure(userId: string) {
+    export function webhookCallFailure(userId: string): void {
         logMetric(1, MetricsType.Histogram, `gutenberg.webhook.call.failure`, {}, userId);
     }
 }
@@ -40,16 +50,6 @@ function logMetric(value: number, metricType: MetricsType, metricName: string, t
     );
 }
 
-function isTestUser(userId: string) {
+function isTestUser(userId: string): boolean {
     return userId.endsWith("-TEST");
-}
-
-/**
- * Legal types of metrics: https://docs.datadoghq.com/integrations/amazon_lambda/#using-cloudwatch-logs
- */
-enum MetricsType {
-    Histogram = "histogram",
-    Count = "count",
-    Gauge = "gauge",
-    Check = "check"
 }

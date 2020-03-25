@@ -46,7 +46,10 @@ router.route(new giftbitRoutes.jwtauth.JwtAuthorizationRoute({
     errorLogFunction: log.error
 }));
 
-const secretsManager = new aws.SecretsManager();
+const secretsManager = new aws.SecretsManager({
+    apiVersion: "2017-10-17",
+    region: process.env["AWS_REGION"]
+});
 const secretEncryptionKey: Promise<GetSecretValueResponse> = secretsManager.getSecretValue({SecretId: process.env["SECRET_ENCRYPTION_KEY"]}).promise();
 initializeSecretEncryptionKey(Promise.resolve(secretEncryptionKey));
 
