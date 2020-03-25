@@ -9,11 +9,12 @@ import {DeleteMessageError} from "../errors/DeleteMessageError";
 export interface LightrailEvent {
     /**
      * The version of the CloudEvents specification which the event uses.
+     * By using this spec it might open the door to compatible tooling.
      */
     specVersion: string;
 
     /**
-     * Event types are dot-separated namespace. They are set by event producers in Lightrail.
+     * Event types are dot-separated.
      * eg: `lightrail.transaction.created`
      */
     type: string;
