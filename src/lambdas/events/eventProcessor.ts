@@ -14,6 +14,7 @@ export async function processEvent(event: LightrailEvent, sentTimestamp: number)
             if (timeSinceFirstAttempt > 259200000) {
                 const message = `Too many third party non-2xx response. FailedWebhookIds: ${result.failedWebhookIds}. UserId: ${event.userId}. Exceeded 3 days. Will delete message. Elapsed time (ms): ${timeSinceFirstAttempt}. Id: ${event.id}.`;
                 log.warn(message);
+                giftbitRoutes.sentry.setSentryUser({userId: event.userId});
                 giftbitRoutes.sentry.sendErrorNotification(new Error(message));
                 return {action: "DELETE"};
             } else {

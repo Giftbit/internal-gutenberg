@@ -84,5 +84,5 @@ async function handleSqsMessages(evt: awslambda.SQSEvent, ctx: awslambda.Context
 export const handler = giftbitRoutes.sentry.wrapLambdaHandler({
     handler: handleSqsMessages,
     logger: log.error,
-    secureConfig: giftbitRoutes.secureConfig.fetchFromS3ByEnvVar<any>("SECURE_CONFIG_BUCKET", "SECURE_CONFIG_KEY_SENTRY")
+    sentryDsn: process.env["SENTRY_DSN"]
 });
