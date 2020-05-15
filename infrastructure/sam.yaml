@@ -21,6 +21,10 @@ Parameters:
     Type: String
     Description: Optional ARN of the KMS encrypting the S3 bucket
     AllowedPattern: arn:aws:kms:[a-zA-Z_0-9\-]+:\d{12}:key/[a-zA-Z_0-9+=,.@\-_/]+
+  SentryDsn:
+    Type: String
+    Description: You can find your project’s DSN in the “Client Keys” section of your “Project Settings” in Sentry.
+    AllowedPattern: https://[0-9a-f]+@o[0-9a-f]+.ingest.sentry.io/[0-9]+
 
 Resources:
 
@@ -105,7 +109,7 @@ Resources:
           SECURE_CONFIG_KEY_ASSUME_STORAGE_SCOPE_TOKEN: assumeStorageScopeToken.json
           SECURE_CONFIG_KEY_JWT: authentication_badge_key.json
           SECURE_CONFIG_KEY_ROLE_DEFINITIONS: RoleDefinitions.json
-          SECURE_CONFIG_KEY_SENTRY: sentry_lambda_services.json
+          SENTRY_DSN: !Ref SentryDsn
       Policies:
       - Version: 2012-10-17
         Statement:
@@ -126,7 +130,6 @@ Resources:
           Resource:
           - !Sub "arn:aws:s3:::${SecureConfigBucket}/authentication_badge_key.json"
           - !Sub "arn:aws:s3:::${SecureConfigBucket}/RoleDefinitions.json"
-          - !Sub "arn:aws:s3:::${SecureConfigBucket}/sentry_lambda_services.json"
           - !Sub "arn:aws:s3:::${SecureConfigBucket}/assumeStorageScopeToken.json"
         - Effect: Allow
           Action:
@@ -173,7 +176,7 @@ Resources:
           SECURE_CONFIG_KEY_ASSUME_STORAGE_SCOPE_TOKEN: assumeStorageScopeToken.json
           SECURE_CONFIG_KEY_JWT: authentication_badge_key.json
           SECURE_CONFIG_KEY_ROLE_DEFINITIONS: RoleDefinitions.json
-          SECURE_CONFIG_KEY_SENTRY: sentry_lambda_services.json
+          SENTRY_DSN: !Ref SentryDsn
       Policies:
       - Version: 2012-10-17
         Statement:
@@ -202,7 +205,6 @@ Resources:
           Resource:
           - !Sub "arn:aws:s3:::${SecureConfigBucket}/authentication_badge_key.json"
           - !Sub "arn:aws:s3:::${SecureConfigBucket}/RoleDefinitions.json"
-          - !Sub "arn:aws:s3:::${SecureConfigBucket}/sentry_lambda_services.json"
           - !Sub "arn:aws:s3:::${SecureConfigBucket}/assumeStorageScopeToken.json"
         - Effect: Allow
           Action:
