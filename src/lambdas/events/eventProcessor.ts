@@ -12,12 +12,13 @@ export async function processEvent(event: LightrailEvent, sentTimestamp: number)
         if (sameElements(result.deliveredWebhookIds, event.deliveredWebhookIds)) {
             const timeSinceFirstAttempt = new Date().getTime() - sentTimestamp;
             if (timeSinceFirstAttempt > 259200000) {
-                const message = `Too many third party non-2xx response. FailedWebhookIds: ${result.failedWebhookIds}. Exceeded 3 days. Will delete message. Elapsed time (ms): ${timeSinceFirstAttempt}. Id: ${event.id}.`;
+                const message = `Too many third party non-2xx response. FailedWebhookIds: ${result.failedWebhookIds}. UserId: ${event.userId}. Exceeded 3 days. Will delete message. Elapsed time (ms): ${timeSinceFirstAttempt}. Id: ${event.id}.`;
                 log.warn(message);
+                giftbitRoutes.sentry.setSentryUser({userId: event.userId});
                 giftbitRoutes.sentry.sendErrorNotification(new Error(message));
                 return {action: "DELETE"};
             } else {
-                log.info(`Received non-2xx response from third party. FailedWebhookIds: ${result.failedWebhookIds}. Third party non-2xx response received but hasn't exceed 3 days. Message must be backed off. Elapsed time (ms): `, timeSinceFirstAttempt);
+                log.info(`Received non-2xx response from third party. FailedWebhookIds: ${result.failedWebhookIds}. UserId: ${event.userId}. Third party non-2xx response received but hasn't exceed 3 days. Message must be backed off. Elapsed time (ms): `, timeSinceFirstAttempt);
                 return {action: "BACKOFF"};
             }
         } else {
