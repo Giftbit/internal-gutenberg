@@ -30,6 +30,7 @@ logPrefix.apply(log, {
 // Set the log level when running in Lambda.
 log.setLevel(log.levels.INFO);
 
+const errorMessageToPreventSQSDeletions = "Intentional error to prevent automatic SQS deletions.";
 const secretsManager = new aws.SecretsManager();
 const secretEncryptionKey: Promise<GetSecretValueResponse> = secretsManager.getSecretValue({SecretId: process.env["SECRET_ENCRYPTION_KEY"]}).promise();
 initializeSecretEncryptionKey(secretEncryptionKey);
@@ -74,9 +75,8 @@ async function handleSqsMessages(evt: awslambda.SQSEvent, ctx: awslambda.Context
     if (recordsToNotDelete.length > 0) {
         // This lambda is triggered directly by SQS. If the lambda succeeds the messages will automatically be deleted.
         // This error is thrown to prevent that automatic deletion so that the message will be processed again later.
-        const message = `Throwing intentional error to prevent records ${recordsToNotDelete.map(r => r.messageId)} from being deleted.`;
-        log.info(message);
-        throw new Error(message);
+        log.info(`Throwing intentional error to prevent records ${recordsToNotDelete.map(r => r.messageId)} from being deleted.`);
+        throw new Error(errorMessageToPreventSQSDeletions);
     }
 }
 
@@ -84,5 +84,8 @@ async function handleSqsMessages(evt: awslambda.SQSEvent, ctx: awslambda.Context
 export const handler = giftbitRoutes.sentry.wrapLambdaHandler({
     handler: handleSqsMessages,
     logger: log.error,
-    sentryDsn: process.env["SENTRY_DSN"]
+    sentryDsn: process.env["SENTRY_DSN"],
+    filtersOptions: {
+        ignoreErrors: [errorMessageToPreventSQSDeletions]
+    }
 });
