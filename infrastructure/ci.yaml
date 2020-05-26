@@ -264,7 +264,6 @@ Resources:
           - lambda:RemovePermission
           - lambda:TagResource
           - lambda:UntagResource
-          - lambda:UpdateEventSourceMapping
           - lambda:UpdateFunctionCode
           - lambda:UpdateFunctionConfiguration
           Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectName}-*"
@@ -274,6 +273,7 @@ Resources:
           - lambda:CreateEventSourceMapping
           - lambda:DeleteEventSourceMapping
           - lambda:GetEventSourceMapping
+          - lambda:UpdateEventSourceMapping
           Resource: "*"
         # Lambda tagging
         - Effect: Allow
