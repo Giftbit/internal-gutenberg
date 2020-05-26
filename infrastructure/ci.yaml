@@ -250,8 +250,9 @@ Resources:
           - lambda:AddPermission
           - lambda:CreateAlias
           - lambda:CreateFunction
-          - lambda:DeleteFunction
           - lambda:DeleteAlias
+          - lambda:DeleteFunction
+          - lambda:DeleteFunctionConcurrency
           - lambda:GetAlias
           - lambda:GetFunction
           - lambda:GetFunctionConfiguration
@@ -259,9 +260,11 @@ Resources:
           - lambda:ListAliases
           - lambda:ListVersionsByFunction
           - lambda:PublishVersion
+          - lambda:PutFunctionConcurrency
           - lambda:RemovePermission
           - lambda:TagResource
           - lambda:UntagResource
+          - lambda:UpdateEventSourceMapping
           - lambda:UpdateFunctionCode
           - lambda:UpdateFunctionConfiguration
           Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectName}-*"
