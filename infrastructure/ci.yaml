@@ -248,16 +248,23 @@ Resources:
         - Effect: Allow
           Action:
           - lambda:AddPermission
+          - lambda:CreateAlias
           - lambda:CreateFunction
+          - lambda:DeleteAlias
           - lambda:DeleteFunction
           - lambda:DeleteFunctionConcurrency
+          - lambda:GetAlias
           - lambda:GetFunction
           - lambda:GetFunctionConfiguration
           - lambda:InvokeFunction
+          - lambda:ListAliases
+          - lambda:ListVersionsByFunction
+          - lambda:PublishVersion
           - lambda:PutFunctionConcurrency
           - lambda:RemovePermission
           - lambda:TagResource
           - lambda:UntagResource
+          - lambda:UpdateAlias
           - lambda:UpdateFunctionCode
           - lambda:UpdateFunctionConfiguration
           Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectName}-*"
@@ -267,6 +274,7 @@ Resources:
           - lambda:CreateEventSourceMapping
           - lambda:DeleteEventSourceMapping
           - lambda:GetEventSourceMapping
+          - lambda:UpdateEventSourceMapping
           Resource: "*"
         # Lambda tagging
         - Effect: Allow
@@ -341,6 +349,30 @@ Resources:
           - secretsmanager:PutResourcePolicy
           - secretsmanager:TagResource
           Resource: "*" # This action does not support resource-level permissions. Policies granting access must specify "*" in the resource element.
+        # Blue Green deployment
+        - Effect: Allow
+          Action:
+            - codedeploy:CreateApplication
+            - codedeploy:DeleteApplication
+            - codedeploy:RegisterApplicationRevision
+          Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:application:${ProjectName}-*"
+        - Effect: Allow
+          Action:
+            - codedeploy:CreateDeployment
+            - codedeploy:CreateDeploymentGroup
+            - codedeploy:DeleteDeploymentGroup
+            - codedeploy:GetDeployment
+            - codedeploy:UpdateDeploymentGroup
+          Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentgroup:${ProjectName}-*"
+        - Effect: Allow
+          Action:
+            - codedeploy:GetDeploymentConfig
+          Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentconfig:CodeDeployDefault.*"
+        - Effect: Allow
+          Action:
+            - cloudwatch:DeleteAlarms
+            - cloudwatch:PutMetricAlarm
+          Resource: !Sub "arn:aws:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:${ProjectName}-*"
   CodePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:

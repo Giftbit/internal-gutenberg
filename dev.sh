@@ -12,6 +12,7 @@ BUILD_ARTIFACT_BUCKET="dev-lightrailgutenberg-3-deploymentartifactbucket-1cgao81
 
 # Parameter values for the sam template.  see: `aws cloudformation deploy help`
 PARAMETER_OVERRIDES="--parameter-overrides"
+PARAMETER_OVERRIDES+=" DeploymentPreferenceType=AllAtOnce"
 PARAMETER_OVERRIDES+=" SecureConfigBucket=dev-lightrailsecureconfig-1q7bltwyiihpq-bucket-id162gq711cc"
 PARAMETER_OVERRIDES+=" SecureConfigKeyAssumeStorageScopeToken=assumeStorageScopeToken.json"
 PARAMETER_OVERRIDES+=" SecureConfigKeyJwt=authentication_badge_key.json"
