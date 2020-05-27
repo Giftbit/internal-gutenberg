@@ -120,7 +120,7 @@ Resources:
         Alarms:
           - !Ref RestFunctionAliasErrorMetricGreaterThanZeroAlarm
           - !Ref RestFunctionLatestVersionErrorMetricGreaterThanZeroAlarm
-          - !Ref GutenbergApiGateway5XXGreaterThanZeroAlarms
+          - !Ref GutenbergApiGateway5XXGreaterThanZeroAlarm
       Environment:
         Variables:
           AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
