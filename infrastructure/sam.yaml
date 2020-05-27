@@ -5,6 +5,19 @@ Transform: AWS::Serverless-2016-10-31
 Description: Gutenberg is a broadcaster of events.
 
 Parameters:
+  DeploymentPreferenceType:
+    Type: String
+    Description: SAM traffic shifting configuration
+    AllowedValues:
+      - Canary10Percent30Minutes
+      - Canary10Percent5Minutes
+      - Canary10Percent10Minutes
+      - Canary10Percent15Minutes
+      - AllAtOnce
+      - Linear10PercentEvery10Minutes
+      - Linear10PercentEvery1Minute
+      - Linear10PercentEvery2Minutes
+      - Linear10PercentEvery3Minutes
   LightrailDomain:
     Type: String
     Description: The domain of the Lightrail REST API
@@ -101,8 +114,16 @@ Resources:
       Runtime: nodejs10.x
       MemorySize: 128
       Timeout: 30 # seconds, 300 max
+      AutoPublishAlias: live # see https://github.com/awslabs/serverless-application-model/blob/master/docs/safe_lambda_deployments.rst
+      DeploymentPreference:
+        Type: !Ref DeploymentPreferenceType
+        Alarms:
+          - !Ref RestFunctionAliasErrorMetricGreaterThanZeroAlarm
+          - !Ref RestFunctionLatestVersionErrorMetricGreaterThanZeroAlarm
+          - !Ref GutenbergApiGateway5XXGreaterThanZeroAlarm
       Environment:
         Variables:
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
           WEBHOOK_TABLE: !Ref WebhookTable
           SECRET_ENCRYPTION_KEY: !Ref WebhookSecretEncryptionKey
           SECURE_CONFIG_BUCKET: !Ref SecureConfigBucket
@@ -158,6 +179,59 @@ Resources:
             Path: /{proxy+}
             Method: ANY
 
+  RestFunctionAliasErrorMetricGreaterThanZeroAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Lambda Function Error > 0
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: Resource
+          Value: !Sub "${RestFunction}:live"
+        - Name: FunctionName
+          Value: !Ref RestFunction
+      EvaluationPeriods: 2
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Sum
+      Threshold: 0
+
+  RestFunctionLatestVersionErrorMetricGreaterThanZeroAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Lambda Function Error > 0
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: Resource
+          Value: !Sub "${RestFunction}:live"
+        - Name: FunctionName
+          Value: !Ref RestFunction
+        - Name: ExecutedVersion
+          Value: !GetAtt RestFunction.Version.Version
+      EvaluationPeriods: 2
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Sum
+      Threshold: 0
+
+  GutenbergApiGateway5XXGreaterThanZeroAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: ApiGateway 5XX > 0
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ApiName
+          Value: !Ref AWS::StackName
+        - Name: Stage
+          Value: Prod
+      EvaluationPeriods: 2
+      MetricName: 5XXError
+      Namespace: AWS/ApiGateway
+      Period: 60
+      Statistic: Sum
+      Threshold: 0
+
   EventsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -167,6 +241,7 @@ Resources:
       MemorySize: 128
       ReservedConcurrentExecutions: 5 # Max concurrent executions. This prevents downstream drowning. 5 is a guess.
       Timeout: 60 # seconds, 300 max. This should match the queue's default message visibility.
+      AutoPublishAlias: live # see https://github.com/awslabs/serverless-application-model/blob/master/docs/safe_lambda_deployments.rst
       Environment:
         Variables:
           EVENT_QUEUE: !Ref EventQueue
